@@ -4,7 +4,7 @@ namespace RPGFramework.DI
 {
     public abstract class DIInstallerBase : ScriptableObject
     {
-        public abstract void InstallBindings(DIContainer container);
+        public abstract void InstallBindings(IDIContainer container);
     }
     
     public abstract class GlobalInstallerBase : DIInstallerBase { }
