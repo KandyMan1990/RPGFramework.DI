@@ -4,13 +4,25 @@ using System.Reflection;
 
 namespace RPGFramework.DI
 {
-    public class DIContainer
+    public interface IDIContainer
+    {
+        void         SetFallback(IDIContainer fallback);
+        IDIContainer GetFallback();
+        bool         TryGetBinding(Type type, out Func<object> creator);
+        void         BindTransient<TInterface, TConcrete>();
+        void         BindSingleton<TInterface, TConcrete>();
+        void         BindSingletonFromInstance<TInterface, TConcrete>(TConcrete instance) where TConcrete : TInterface;
+        T            Resolve<T>();
+        object       Resolve(Type type);
+    }
+
+    public class DIContainer : IDIContainer
     {
         private readonly Dictionary<Type, Func<object>>    m_Bindings;
         private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
         private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
 
-        private DIContainer m_Fallback;
+        private IDIContainer m_Fallback;
 
         public DIContainer()
         {
@@ -19,14 +31,21 @@ namespace RPGFramework.DI
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
         }
 
-        public void SetFallback(DIContainer fallback)
+        public void SetFallback(IDIContainer fallback)
         {
             m_Fallback = fallback;
         }
 
+        public IDIContainer GetFallback() => m_Fallback;
+
         public void BindTransient<TInterface, TConcrete>()
         {
             m_Bindings[typeof(TInterface)] = () => CreateInstance(typeof(TConcrete));
+        }
+
+        public bool TryGetBinding(Type type, out Func<object> creator)
+        {
+            return m_Bindings.TryGetValue(type, out creator);
         }
 
         public void BindSingleton<TInterface, TConcrete>()
@@ -47,16 +66,16 @@ namespace RPGFramework.DI
 
         public object Resolve(Type type)
         {
-            DIContainer container = this;
+            IDIContainer container = this;
 
             while (container != null)
             {
-                if (container.m_Bindings.TryGetValue(type, out Func<object> creator))
+                if (container.TryGetBinding(type, out Func<object> creator))
                 {
                     return creator();
                 }
 
-                container = container.m_Fallback;
+                container = container.GetFallback();
             }
 
             throw new Exception($"No binding for type [{type}]");
