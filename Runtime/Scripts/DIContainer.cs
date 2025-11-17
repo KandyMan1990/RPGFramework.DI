@@ -40,7 +40,10 @@ namespace RPGFramework.DI
 
         public void BindTransient<TInterface, TConcrete>()
         {
-            m_Bindings[typeof(TInterface)] = () => CreateInstance(typeof(TConcrete));
+            Type concrete = typeof(TConcrete);
+            CacheConstructorAndParams(concrete);
+
+            m_Bindings[typeof(TInterface)] = () => CreateInstance(concrete);
         }
 
         public bool TryGetBinding(Type type, out Func<object> creator)
@@ -50,7 +53,10 @@ namespace RPGFramework.DI
 
         public void BindSingleton<TInterface, TConcrete>()
         {
-            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(typeof(TConcrete)));
+            Type concrete = typeof(TConcrete);
+            CacheConstructorAndParams(concrete);
+
+            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete));
             m_Bindings[typeof(TInterface)] = () => lazy.Value;
         }
 
@@ -83,21 +89,7 @@ namespace RPGFramework.DI
 
         private object CreateInstance(Type concreteType)
         {
-            if (!m_ConstructorCache.TryGetValue(concreteType, out ConstructorInfo constructor))
-            {
-                constructor                      = FindBestConstructor(concreteType);
-                m_ConstructorCache[concreteType] = constructor;
-
-                ParameterInfo[] parameterInfos = constructor.GetParameters();
-                Type[]          parameterTypes = new Type[parameterInfos.Length];
-
-                for (int i = 0; i < parameterInfos.Length; i++)
-                {
-                    parameterTypes[i] = parameterInfos[i].ParameterType;
-                }
-
-                m_ConstructorParamsCache[concreteType] = parameterTypes;
-            }
+            ConstructorInfo constructor = m_ConstructorCache[concreteType];
 
             Type[]   parameters = m_ConstructorParamsCache[concreteType];
             object[] args       = new object[parameters.Length];
@@ -133,6 +125,28 @@ namespace RPGFramework.DI
             }
 
             return best;
+        }
+
+        private static Type[] GetConstructorParams(ConstructorInfo constructor)
+        {
+            ParameterInfo[] parameterInfos = constructor.GetParameters();
+            Type[]          parameterTypes = new Type[parameterInfos.Length];
+
+            for (int i = 0; i < parameterInfos.Length; i++)
+            {
+                parameterTypes[i] = parameterInfos[i].ParameterType;
+            }
+
+            return parameterTypes;
+        }
+
+        private void CacheConstructorAndParams(Type concreteType)
+        {
+            ConstructorInfo constructorInfo = FindBestConstructor(concreteType);
+            m_ConstructorCache[concreteType] = constructorInfo;
+
+            Type[] parameterTypes = GetConstructorParams(constructorInfo);
+            m_ConstructorParamsCache[concreteType] = parameterTypes;
         }
     }
 }
