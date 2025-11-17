@@ -1,6 +1,6 @@
 {
   "name": "com.rpgframework.di",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "RPG Framework DI",
   "description": "DI system for the RPG Framework",
   "unity": "6000.0",
