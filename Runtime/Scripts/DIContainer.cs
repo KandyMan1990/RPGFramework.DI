@@ -6,8 +6,8 @@ namespace RPGFramework.DI
 {
     public interface IDIContainer
     {
-        void         SetFallback(IDIContainer fallback);
         IDIContainer GetFallback();
+        void         SetFallback(IDIContainer fallback);
         bool         TryGetBinding(Type type, out Func<object> creator);
         void         BindTransient<TInterface, TConcrete>();
         void         BindSingleton<TInterface, TConcrete>();
