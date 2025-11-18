@@ -8,10 +8,10 @@ namespace RPGFramework.DI
     {
         IDIContainer GetFallback();
         void         SetFallback(IDIContainer fallback);
-        bool         TryGetBinding(Type type, out Func<object> creator);
+        bool         TryGetBinding(Type       type, out Func<object> creator);
         void         BindTransient<TInterface, TConcrete>();
         void         BindSingleton<TInterface, TConcrete>();
-        void         BindSingletonFromInstance<TInterface, TConcrete>(TConcrete instance) where TConcrete : TInterface;
+        void         BindSingletonFromInstance<TInterface>(TInterface instance);
         T            Resolve<T>();
         object       Resolve(Type type);
     }
@@ -60,7 +60,7 @@ namespace RPGFramework.DI
             m_Bindings[typeof(TInterface)] = () => lazy.Value;
         }
 
-        public void BindSingletonFromInstance<TInterface, TConcrete>(TConcrete instance) where TConcrete : TInterface
+        public void BindSingletonFromInstance<TInterface>(TInterface instance)
         {
             m_Bindings[typeof(TInterface)] = () => instance;
         }
