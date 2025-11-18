@@ -9,8 +9,8 @@ namespace RPGFramework.DI
         IDIContainer GetFallback();
         void         SetFallback(IDIContainer fallback);
         bool         TryGetBinding(Type       type, out Func<object> creator);
-        void         BindTransient<TInterface, TConcrete>();
-        void         BindSingleton<TInterface, TConcrete>();
+        void         BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+        void         BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
         void         BindSingletonFromInstance<TInterface>(TInterface instance);
         T            Resolve<T>();
         object       Resolve(Type type);
@@ -21,6 +21,7 @@ namespace RPGFramework.DI
         private readonly Dictionary<Type, Func<object>>    m_Bindings;
         private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
         private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
+        private readonly IDIContainer                      m_DiContainer;
 
         private IDIContainer m_Fallback;
 
@@ -29,16 +30,22 @@ namespace RPGFramework.DI
             m_Bindings               = new Dictionary<Type, Func<object>>();
             m_ConstructorCache       = new Dictionary<Type, ConstructorInfo>();
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
+            m_DiContainer            = this;
         }
 
-        public void SetFallback(IDIContainer fallback)
+        IDIContainer IDIContainer.GetFallback() => m_Fallback;
+
+        void IDIContainer.SetFallback(IDIContainer fallback)
         {
             m_Fallback = fallback;
         }
 
-        public IDIContainer GetFallback() => m_Fallback;
+        bool IDIContainer.TryGetBinding(Type type, out Func<object> creator)
+        {
+            return m_Bindings.TryGetValue(type, out creator);
+        }
 
-        public void BindTransient<TInterface, TConcrete>()
+        void IDIContainer.BindTransient<TInterface, TConcrete>()
         {
             Type concrete = typeof(TConcrete);
             CacheConstructorAndParams(concrete);
@@ -46,12 +53,7 @@ namespace RPGFramework.DI
             m_Bindings[typeof(TInterface)] = () => CreateInstance(concrete);
         }
 
-        public bool TryGetBinding(Type type, out Func<object> creator)
-        {
-            return m_Bindings.TryGetValue(type, out creator);
-        }
-
-        public void BindSingleton<TInterface, TConcrete>()
+        void IDIContainer.BindSingleton<TInterface, TConcrete>()
         {
             Type concrete = typeof(TConcrete);
             CacheConstructorAndParams(concrete);
@@ -60,17 +62,17 @@ namespace RPGFramework.DI
             m_Bindings[typeof(TInterface)] = () => lazy.Value;
         }
 
-        public void BindSingletonFromInstance<TInterface>(TInterface instance)
+        void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance)
         {
             m_Bindings[typeof(TInterface)] = () => instance;
         }
 
-        public T Resolve<T>()
+        T IDIContainer.Resolve<T>()
         {
-            return (T)Resolve(typeof(T));
+            return (T)m_DiContainer.Resolve(typeof(T));
         }
 
-        public object Resolve(Type type)
+        object IDIContainer.Resolve(Type type)
         {
             IDIContainer container = this;
 
@@ -96,7 +98,7 @@ namespace RPGFramework.DI
 
             for (int i = 0; i < parameters.Length; i++)
             {
-                args[i] = Resolve(parameters[i]);
+                args[i] = m_DiContainer.Resolve(parameters[i]);
             }
 
             return constructor.Invoke(args);
