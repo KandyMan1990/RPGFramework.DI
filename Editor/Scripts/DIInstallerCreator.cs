@@ -52,7 +52,7 @@ namespace RPGFramework.DI.Editor
             sb.AppendLine();
             sb.AppendLine($"public class {className} : {baseClass}");
             sb.AppendLine("{");
-            sb.AppendLine("\tpublic override void InstallBindings(DIContainer container)");
+            sb.AppendLine("\tpublic override void InstallBindings(IDIContainer container)");
             sb.AppendLine("\t{");
             sb.AppendLine("\t\t// TODO: add your bindings here");
             sb.AppendLine("\t\t// container.BindSingleton<IFoo, Foo>();");
