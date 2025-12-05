@@ -144,11 +144,17 @@ namespace RPGFramework.DI
 
         private void CacheConstructorAndParams(Type concreteType)
         {
-            ConstructorInfo constructorInfo = FindBestConstructor(concreteType);
-            m_ConstructorCache[concreteType] = constructorInfo;
+            if (!m_ConstructorCache.TryGetValue(concreteType, out ConstructorInfo constructorInfo))
+            {
+                constructorInfo                  = FindBestConstructor(concreteType);
+                m_ConstructorCache[concreteType] = constructorInfo;
+            }
 
-            Type[] parameterTypes = GetConstructorParams(constructorInfo);
-            m_ConstructorParamsCache[concreteType] = parameterTypes;
+            if (!m_ConstructorParamsCache.TryGetValue(concreteType, out Type[] parameterTypes))
+            {
+                parameterTypes                         = GetConstructorParams(constructorInfo);
+                m_ConstructorParamsCache[concreteType] = parameterTypes;
+            }
         }
     }
 }
