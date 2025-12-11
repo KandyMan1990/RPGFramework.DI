@@ -13,6 +13,9 @@ namespace RPGFramework.DI
         void         BindTransient<TInterface, TConcrete>(bool        forceOverrideBinding                = false) where TConcrete : TInterface;
         void         BindSingleton<TInterface, TConcrete>(bool        forceOverrideBinding                = false) where TConcrete : TInterface;
         void         BindSingletonFromInstance<TInterface>(TInterface instance, bool forceOverrideBinding = false);
+        void         BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+        void         BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+        void         BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
         T            Resolve<T>();
         object       Resolve(Type type);
     }
@@ -57,10 +60,7 @@ namespace RPGFramework.DI
                 }
             }
 
-            Type concrete = typeof(TConcrete);
-            CacheConstructorAndParams(concrete);
-
-            m_Bindings[typeof(TInterface)] = () => CreateInstance(concrete);
+            BindTransient<TInterface, TConcrete>();
         }
 
         void IDIContainer.BindSingleton<TInterface, TConcrete>(bool forceOverrideBinding)
@@ -74,11 +74,7 @@ namespace RPGFramework.DI
                 }
             }
 
-            Type concrete = typeof(TConcrete);
-            CacheConstructorAndParams(concrete);
-
-            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete));
-            m_Bindings[typeof(TInterface)] = () => lazy.Value;
+            BindSingleton<TInterface, TConcrete>();
         }
 
         void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance, bool forceOverrideBinding)
@@ -92,7 +88,37 @@ namespace RPGFramework.DI
                 }
             }
 
-            m_Bindings[typeof(TInterface)] = () => instance;
+            BindSingletonFromInstance<TInterface>(instance);
+        }
+
+        void IDIContainer.BindTransientIfNotRegistered<TInterface, TConcrete>()
+        {
+            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            {
+                return;
+            }
+
+            BindTransient<TInterface, TConcrete>();
+        }
+
+        void IDIContainer.BindSingletonIfNotRegistered<TInterface, TConcrete>()
+        {
+            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            {
+                return;
+            }
+
+            BindSingleton<TInterface, TConcrete>();
+        }
+
+        void IDIContainer.BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance)
+        {
+            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            {
+                return;
+            }
+
+            BindSingletonFromInstance<TInterface>(instance);
         }
 
         T IDIContainer.Resolve<T>()
@@ -115,6 +141,28 @@ namespace RPGFramework.DI
             }
 
             throw new Exception($"No binding for type [{type}]");
+        }
+
+        private void BindTransient<TInterface, TConcrete>()
+        {
+            Type concrete = typeof(TConcrete);
+            CacheConstructorAndParams(concrete);
+
+            m_Bindings[typeof(TInterface)] = () => CreateInstance(concrete);
+        }
+
+        private void BindSingleton<TInterface, TConcrete>()
+        {
+            Type concrete = typeof(TConcrete);
+            CacheConstructorAndParams(concrete);
+
+            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete));
+            m_Bindings[typeof(TInterface)] = () => lazy.Value;
+        }
+
+        private void BindSingletonFromInstance<TInterface>(TInterface instance)
+        {
+            m_Bindings[typeof(TInterface)] = () => instance;
         }
 
         private object CreateInstance(Type concreteType)
