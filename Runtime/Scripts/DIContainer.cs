@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine;
 
 namespace RPGFramework.DI
 {
@@ -47,6 +48,12 @@ namespace RPGFramework.DI
 
         void IDIContainer.BindTransient<TInterface, TConcrete>()
         {
+            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            {
+                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindTransient)} [{typeof(TInterface)}] has already been bound"));
+                return;
+            }
+
             Type concrete = typeof(TConcrete);
             CacheConstructorAndParams(concrete);
 
@@ -55,6 +62,12 @@ namespace RPGFramework.DI
 
         void IDIContainer.BindSingleton<TInterface, TConcrete>()
         {
+            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            {
+                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingleton)} [{typeof(TInterface)}] has already been bound"));
+                return;
+            }
+
             Type concrete = typeof(TConcrete);
             CacheConstructorAndParams(concrete);
 
@@ -64,6 +77,12 @@ namespace RPGFramework.DI
 
         void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance)
         {
+            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            {
+                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingletonFromInstance)} [{typeof(TInterface)}] has already been bound"));
+                return;
+            }
+
             m_Bindings[typeof(TInterface)] = () => instance;
         }
 
