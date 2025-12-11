@@ -8,11 +8,11 @@ namespace RPGFramework.DI
     public interface IDIContainer
     {
         IDIContainer GetFallback();
-        void         SetFallback(IDIContainer fallback);
-        bool         TryGetBinding(Type       type, out Func<object> creator);
-        void         BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingletonFromInstance<TInterface>(TInterface instance);
+        void         SetFallback(IDIContainer                         fallback);
+        bool         TryGetBinding(Type                               type, out Func<object> creator);
+        void         BindTransient<TInterface, TConcrete>(bool        forceOverrideBinding                = false) where TConcrete : TInterface;
+        void         BindSingleton<TInterface, TConcrete>(bool        forceOverrideBinding                = false) where TConcrete : TInterface;
+        void         BindSingletonFromInstance<TInterface>(TInterface instance, bool forceOverrideBinding = false);
         T            Resolve<T>();
         object       Resolve(Type type);
     }
@@ -46,12 +46,15 @@ namespace RPGFramework.DI
             return m_Bindings.TryGetValue(type, out creator);
         }
 
-        void IDIContainer.BindTransient<TInterface, TConcrete>()
+        void IDIContainer.BindTransient<TInterface, TConcrete>(bool forceOverrideBinding)
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            if (!forceOverrideBinding)
             {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindTransient)} [{typeof(TInterface)}] has already been bound"));
-                return;
+                if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+                {
+                    Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindTransient)} [{typeof(TInterface)}] has already been bound"));
+                    return;
+                }
             }
 
             Type concrete = typeof(TConcrete);
@@ -60,12 +63,15 @@ namespace RPGFramework.DI
             m_Bindings[typeof(TInterface)] = () => CreateInstance(concrete);
         }
 
-        void IDIContainer.BindSingleton<TInterface, TConcrete>()
+        void IDIContainer.BindSingleton<TInterface, TConcrete>(bool forceOverrideBinding)
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            if (!forceOverrideBinding)
             {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingleton)} [{typeof(TInterface)}] has already been bound"));
-                return;
+                if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+                {
+                    Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingleton)} [{typeof(TInterface)}] has already been bound"));
+                    return;
+                }
             }
 
             Type concrete = typeof(TConcrete);
@@ -75,12 +81,15 @@ namespace RPGFramework.DI
             m_Bindings[typeof(TInterface)] = () => lazy.Value;
         }
 
-        void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance)
+        void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance, bool forceOverrideBinding)
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+            if (!forceOverrideBinding)
             {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingletonFromInstance)} [{typeof(TInterface)}] has already been bound"));
-                return;
+                if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
+                {
+                    Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingletonFromInstance)} [{typeof(TInterface)}] has already been bound"));
+                    return;
+                }
             }
 
             m_Bindings[typeof(TInterface)] = () => instance;
