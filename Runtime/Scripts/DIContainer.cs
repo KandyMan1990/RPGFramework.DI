@@ -9,21 +9,18 @@ namespace RPGFramework.DI
 {
     public interface IDIContainer
     {
-        IDIContainer GetFallback();
-        void         SetFallback(IDIContainer fallback);
-        bool         TryGetBinding(Type       type, out Func<object> creator);
-        void         BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingletonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingletonNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingletonFromInstance<TInterface>(TInterface instance);
-        void         BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingletonIfNotRegisteredLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingletonIfNotRegisteredNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
-        void         ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         ForceBindSingletonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         ForceBindSingletonNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void         ForceBindSingletonFromInstance<TInterface>(TInterface instance);
+        void BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+        void BindSingletonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
+        void BindSingletonNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
+        void BindSingletonFromInstance<TInterface>(TInterface instance);
+        void BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+        void BindSingletonIfNotRegisteredLazy<TInterface, TConcrete>() where TConcrete : TInterface;
+        void BindSingletonIfNotRegisteredNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
+        void BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
+        void ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+        void ForceBindSingletonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
+        void ForceBindSingletonNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
+        void ForceBindSingletonFromInstance<TInterface>(TInterface instance);
     }
 
     public interface IDIResolver
@@ -32,14 +29,21 @@ namespace RPGFramework.DI
         object Resolve(Type type);
     }
 
-    public class DIContainer : IDIContainer, IDIResolver
+    public interface IDIContainerNode
+    {
+        IDIContainerNode GetFallback();
+        void             SetFallback(IDIContainerNode fallback);
+        bool             TryGetBinding(Type           type, out Func<object> creator);
+    }
+
+    public class DIContainer : IDIContainer, IDIResolver, IDIContainerNode
     {
         private readonly Dictionary<Type, Func<object>>    m_Bindings;
         private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
         private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
         private readonly IDIResolver                       m_DiResolver;
 
-        private IDIContainer m_Fallback;
+        private IDIContainerNode m_Fallback;
 
         public DIContainer()
         {
@@ -49,14 +53,14 @@ namespace RPGFramework.DI
             m_DiResolver             = this;
         }
 
-        IDIContainer IDIContainer.GetFallback() => m_Fallback;
+        IDIContainerNode IDIContainerNode.GetFallback() => m_Fallback;
 
-        void IDIContainer.SetFallback(IDIContainer fallback)
+        void IDIContainerNode.SetFallback(IDIContainerNode fallback)
         {
             m_Fallback = fallback;
         }
 
-        bool IDIContainer.TryGetBinding(Type type, out Func<object> creator)
+        bool IDIContainerNode.TryGetBinding(Type type, out Func<object> creator)
         {
             return m_Bindings.TryGetValue(type, out creator);
         }
@@ -172,7 +176,7 @@ namespace RPGFramework.DI
 
         object IDIResolver.Resolve(Type type)
         {
-            IDIContainer container = this;
+            IDIContainerNode container = this;
 
             while (container != null)
             {
