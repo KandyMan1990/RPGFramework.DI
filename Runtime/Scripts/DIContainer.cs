@@ -19,16 +19,20 @@ namespace RPGFramework.DI
         void         ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
         void         ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
         void         ForceBindSingletonFromInstance<TInterface>(TInterface instance);
-        T            Resolve<T>();
-        object       Resolve(Type type);
     }
 
-    public class DIContainer : IDIContainer
+    public interface IDIResolver
+    {
+        T      Resolve<T>();
+        object Resolve(Type type);
+    }
+
+    public class DIContainer : IDIContainer, IDIResolver
     {
         private readonly Dictionary<Type, Func<object>>    m_Bindings;
         private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
         private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
-        private readonly IDIContainer                      m_DiContainer;
+        private readonly IDIResolver                       m_DiResolver;
 
         private IDIContainer m_Fallback;
 
@@ -37,7 +41,7 @@ namespace RPGFramework.DI
             m_Bindings               = new Dictionary<Type, Func<object>>();
             m_ConstructorCache       = new Dictionary<Type, ConstructorInfo>();
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
-            m_DiContainer            = this;
+            m_DiResolver             = this;
         }
 
         IDIContainer IDIContainer.GetFallback() => m_Fallback;
@@ -130,12 +134,12 @@ namespace RPGFramework.DI
             BindSingletonFromInstance<TInterface>(instance);
         }
 
-        T IDIContainer.Resolve<T>()
+        T IDIResolver.Resolve<T>()
         {
-            return (T)m_DiContainer.Resolve(typeof(T));
+            return (T)m_DiResolver.Resolve(typeof(T));
         }
 
-        object IDIContainer.Resolve(Type type)
+        object IDIResolver.Resolve(Type type)
         {
             IDIContainer container = this;
 
@@ -183,7 +187,7 @@ namespace RPGFramework.DI
 
             for (int i = 0; i < parameters.Length; i++)
             {
-                args[i] = m_DiContainer.Resolve(parameters[i]);
+                args[i] = m_DiResolver.Resolve(parameters[i]);
             }
 
             return constructor.Invoke(args);
