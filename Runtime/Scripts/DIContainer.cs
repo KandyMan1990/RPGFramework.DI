@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using UnityEngine;
 
 namespace RPGFramework.DI
@@ -199,7 +200,7 @@ namespace RPGFramework.DI
             Type concrete = typeof(TConcrete);
             CacheConstructorAndParams(concrete);
 
-            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete));
+            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete), LazyThreadSafetyMode.None);
             m_Bindings[typeof(TInterface)] = () => lazy.Value;
         }
 
