@@ -188,7 +188,7 @@ namespace RPGFramework.DI
                 container = container.GetFallback();
             }
 
-            throw new Exception($"No binding for type [{type}]");
+            throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
         }
 
         private void BindTransient<TInterface, TConcrete>()
