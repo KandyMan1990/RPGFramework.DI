@@ -3,10 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-using UnityEngine;
 
 namespace RPGFramework.DI
 {
+    internal enum BindPolicy
+    {
+        ErrorIfExists,
+        SkipIfExists,
+        Overwrite
+    }
+
     public interface IDIContainer
     {
         void            BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
@@ -18,6 +24,9 @@ namespace RPGFramework.DI
         void            ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
         INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
         void            ForceBindSingletonFromInstance<TInterface>(TInterface instance);
+        INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
+        INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
+        INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
     }
 
     public interface IDIResolver
@@ -62,87 +71,66 @@ namespace RPGFramework.DI
             m_Fallback = fallback;
         }
 
-        bool IDIContainerNode.TryGetBinding(Type type, out Func<object> creator)
-        {
-            return m_Bindings.TryGetValue(type, out creator);
-        }
+        bool IDIContainerNode.TryGetBinding(Type type, out Func<object> creator) => m_Bindings.TryGetValue(type, out creator);
 
         void IDIContainer.BindTransient<TInterface, TConcrete>()
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindTransient)} [{typeof(TInterface)}] has already been bound"));
-                return;
-            }
-
-            BindTransient<TInterface, TConcrete>();
+            BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.ErrorIfExists, false);
         }
 
         INonLazyBinding IDIContainer.BindSingleton<TInterface, TConcrete>()
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingleton)} [{typeof(TInterface)}] has already been bound"));
-                return null;
-            }
-
-            return BindSingleton<TInterface, TConcrete>();
+            return BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.ErrorIfExists, true);
         }
 
         void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance)
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingletonFromInstance)} [{typeof(TInterface)}] has already been bound"));
-                return;
-            }
-
-            BindSingletonFromInstance<TInterface>(instance);
+            BindInstance(typeof(TInterface), instance, BindPolicy.ErrorIfExists);
         }
 
         void IDIContainer.BindTransientIfNotRegistered<TInterface, TConcrete>()
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                return;
-            }
-
-            BindTransient<TInterface, TConcrete>();
+            BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.SkipIfExists, false);
         }
 
         INonLazyBinding IDIContainer.BindSingletonIfNotRegistered<TInterface, TConcrete>()
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                return null;
-            }
-
-            return BindSingleton<TInterface, TConcrete>();
+            return BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.SkipIfExists, true);
         }
 
         void IDIContainer.BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance)
         {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                return;
-            }
-
-            BindSingletonFromInstance<TInterface>(instance);
+            BindInstance(typeof(TInterface), instance, BindPolicy.SkipIfExists);
         }
 
         void IDIContainer.ForceBindTransient<TInterface, TConcrete>()
         {
-            BindTransient<TInterface, TConcrete>();
+            BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.Overwrite, false);
         }
 
         INonLazyBinding IDIContainer.ForceBindSingleton<TInterface, TConcrete>()
         {
-            return BindSingleton<TInterface, TConcrete>();
+            return BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.Overwrite, true);
         }
 
         void IDIContainer.ForceBindSingletonFromInstance<TInterface>(TInterface instance)
         {
-            BindSingletonFromInstance<TInterface>(instance);
+            BindInstance(typeof(TInterface), instance, BindPolicy.Overwrite);
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesToSelfSingleton<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.ErrorIfExists);
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.SkipIfExists);
+        }
+
+        INonLazyBinding IDIContainer.ForceBindInterfacesToSelfSingleton<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Overwrite);
         }
 
         T IDIResolver.Resolve<T>()
@@ -167,28 +155,75 @@ namespace RPGFramework.DI
             throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
         }
 
-        private void BindTransient<TInterface, TConcrete>()
+        private bool HandleExistingBinding(Type type, BindPolicy bindPolicy, string context)
         {
-            Type concrete = typeof(TConcrete);
-            CacheConstructorAndParams(concrete);
+            if (!m_Bindings.ContainsKey(type))
+            {
+                return true;
+            }
 
-            m_Bindings[typeof(TInterface)] = () => CreateInstance(concrete);
+            switch (bindPolicy)
+            {
+                case BindPolicy.ErrorIfExists:
+                    throw new ArgumentException($"{nameof(IDIContainer)}::{context} [{type}] has already been bound");
+                case BindPolicy.SkipIfExists:
+                    return false;
+                case BindPolicy.Overwrite:
+                    return true;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
-        private INonLazyBinding BindSingleton<TInterface, TConcrete>()
+        private INonLazyBinding BindType(Type tInterface, Type tConcrete, BindPolicy bindPolicy, bool singleton)
+        {
+            if (!HandleExistingBinding(tInterface, bindPolicy, nameof(BindType)))
+            {
+                return null;
+            }
+
+            CacheConstructorAndParams(tConcrete);
+
+            if (!singleton)
+            {
+                m_Bindings[tInterface] = () => CreateInstance(tConcrete);
+                return null;
+            }
+
+            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(tConcrete), LazyThreadSafetyMode.None);
+            m_Bindings[tInterface] = () => lazy.Value;
+
+            return new NonLazyBinding(lazy);
+        }
+
+        private void BindInstance(Type tInterface, object instance, BindPolicy bindPolicy)
+        {
+            if (!HandleExistingBinding(tInterface, bindPolicy, nameof(BindInstance)))
+            {
+                return;
+            }
+
+            m_Bindings[tInterface] = () => instance;
+        }
+
+        private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy)
         {
             Type concrete = typeof(TConcrete);
             CacheConstructorAndParams(concrete);
 
             Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete), LazyThreadSafetyMode.None);
-            m_Bindings[typeof(TInterface)] = () => lazy.Value;
+
+            foreach (Type iface in concrete.GetInterfaces())
+            {
+                if (!HandleExistingBinding(iface, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal)))
+                {
+                    continue;
+                }
+
+                m_Bindings[iface] = () => lazy.Value;
+            }
 
             return new NonLazyBinding(lazy);
-        }
-
-        private void BindSingletonFromInstance<TInterface>(TInterface instance)
-        {
-            m_Bindings[typeof(TInterface)] = () => instance;
         }
 
         private object CreateInstance(Type concreteType)
