@@ -239,6 +239,11 @@ namespace RPGFramework.DI
                                                          .Where(c => !c.IsDefined(typeof(ObsoleteAttribute), inherit: true))
                                                          .ToArray();
 
+            if (constructors.Length == 0)
+            {
+                throw new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(FindBestConstructor)} Type [{concreteType}] has no usable public constructors");
+            }
+
             if (constructors.Length == 1)
             {
                 return constructors[0];
