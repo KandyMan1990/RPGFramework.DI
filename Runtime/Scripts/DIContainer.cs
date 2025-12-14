@@ -9,18 +9,15 @@ namespace RPGFramework.DI
 {
     public interface IDIContainer
     {
-        void BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        void BindSingletonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void BindSingletonNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void BindSingletonFromInstance<TInterface>(TInterface instance);
-        void BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
-        void BindSingletonIfNotRegisteredLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void BindSingletonIfNotRegisteredNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
-        void ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        void ForceBindSingletonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void ForceBindSingletonNonLazy<TInterface, TConcrete>() where TConcrete : TInterface;
-        void ForceBindSingletonFromInstance<TInterface>(TInterface instance);
+        void            BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+        INonLazyBinding BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
+        void            BindSingletonFromInstance<TInterface>(TInterface instance);
+        void            BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+        INonLazyBinding BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+        void            BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
+        void            ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+        INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
+        void            ForceBindSingletonFromInstance<TInterface>(TInterface instance);
     }
 
     public interface IDIResolver
@@ -34,6 +31,11 @@ namespace RPGFramework.DI
         IDIContainerNode GetFallback();
         void             SetFallback(IDIContainerNode fallback);
         bool             TryGetBinding(Type           type, out Func<object> creator);
+    }
+
+    public interface INonLazyBinding
+    {
+        void AsNonLazy();
     }
 
     public class DIContainer : IDIContainer, IDIResolver, IDIContainerNode
@@ -76,26 +78,15 @@ namespace RPGFramework.DI
             BindTransient<TInterface, TConcrete>();
         }
 
-        void IDIContainer.BindSingletonLazy<TInterface, TConcrete>()
+        INonLazyBinding IDIContainer.BindSingleton<TInterface, TConcrete>()
         {
             if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
             {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingletonLazy)} [{typeof(TInterface)}] has already been bound"));
-                return;
+                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingleton)} [{typeof(TInterface)}] has already been bound"));
+                return null;
             }
 
-            BindSingletonLazy<TInterface, TConcrete>();
-        }
-
-        void IDIContainer.BindSingletonNonLazy<TInterface, TConcrete>()
-        {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(IDIContainer.BindSingletonNonLazy)} [{typeof(TInterface)}] has already been bound"));
-                return;
-            }
-
-            BindSingletonNonLazy<TInterface, TConcrete>();
+            return BindSingleton<TInterface, TConcrete>();
         }
 
         void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance)
@@ -119,24 +110,14 @@ namespace RPGFramework.DI
             BindTransient<TInterface, TConcrete>();
         }
 
-        void IDIContainer.BindSingletonIfNotRegisteredLazy<TInterface, TConcrete>()
+        INonLazyBinding IDIContainer.BindSingletonIfNotRegistered<TInterface, TConcrete>()
         {
             if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
             {
-                return;
+                return null;
             }
 
-            BindSingletonLazy<TInterface, TConcrete>();
-        }
-
-        void IDIContainer.BindSingletonIfNotRegisteredNonLazy<TInterface, TConcrete>()
-        {
-            if (m_Bindings.TryGetValue(typeof(TInterface), out Func<object> _))
-            {
-                return;
-            }
-
-            BindSingletonNonLazy<TInterface, TConcrete>();
+            return BindSingleton<TInterface, TConcrete>();
         }
 
         void IDIContainer.BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance)
@@ -154,14 +135,9 @@ namespace RPGFramework.DI
             BindTransient<TInterface, TConcrete>();
         }
 
-        void IDIContainer.ForceBindSingletonLazy<TInterface, TConcrete>()
+        INonLazyBinding IDIContainer.ForceBindSingleton<TInterface, TConcrete>()
         {
-            BindSingletonLazy<TInterface, TConcrete>();
-        }
-
-        void IDIContainer.ForceBindSingletonNonLazy<TInterface, TConcrete>()
-        {
-            BindSingletonNonLazy<TInterface, TConcrete>();
+            return BindSingleton<TInterface, TConcrete>();
         }
 
         void IDIContainer.ForceBindSingletonFromInstance<TInterface>(TInterface instance)
@@ -199,22 +175,15 @@ namespace RPGFramework.DI
             m_Bindings[typeof(TInterface)] = () => CreateInstance(concrete);
         }
 
-        private void BindSingletonLazy<TInterface, TConcrete>()
+        private INonLazyBinding BindSingleton<TInterface, TConcrete>()
         {
             Type concrete = typeof(TConcrete);
             CacheConstructorAndParams(concrete);
 
             Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete), LazyThreadSafetyMode.None);
             m_Bindings[typeof(TInterface)] = () => lazy.Value;
-        }
 
-        private void BindSingletonNonLazy<TInterface, TConcrete>()
-        {
-            Type concrete = typeof(TConcrete);
-            CacheConstructorAndParams(concrete);
-
-            object obj = CreateInstance(concrete);
-            m_Bindings[typeof(TInterface)] = () => obj;
+            return new NonLazyBinding(lazy);
         }
 
         private void BindSingletonFromInstance<TInterface>(TInterface instance)
@@ -295,6 +264,21 @@ namespace RPGFramework.DI
                 parameterTypes                         = GetConstructorParams(constructorInfo);
                 m_ConstructorParamsCache[concreteType] = parameterTypes;
             }
+        }
+    }
+
+    internal sealed class NonLazyBinding : INonLazyBinding
+    {
+        private readonly Lazy<object> m_Lazy;
+
+        internal NonLazyBinding(Lazy<object> lazy)
+        {
+            m_Lazy = lazy;
+        }
+
+        void INonLazyBinding.AsNonLazy()
+        {
+            _ = m_Lazy.Value;
         }
     }
 }
