@@ -18,6 +18,9 @@ namespace RPGFramework.DI
         void            ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
         INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
         void            ForceBindSingletonFromInstance<TInterface>(TInterface instance);
+        INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>();
+        INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>();
+        INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>();
     }
 
     public interface IDIResolver
@@ -145,6 +148,21 @@ namespace RPGFramework.DI
             BindSingletonFromInstance<TInterface>(instance);
         }
 
+        INonLazyBinding IDIContainer.BindInterfacesToSelfSingleton<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>();
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonIfNotRegisteredInternal<TConcrete>();
+        }
+
+        INonLazyBinding IDIContainer.ForceBindInterfacesToSelfSingleton<TConcrete>()
+        {
+            return ForceBindInterfacesToSelfSingletonInternal<TConcrete>();
+        }
+
         T IDIResolver.Resolve<T>()
         {
             return (T)m_DiResolver.Resolve(typeof(T));
@@ -204,6 +222,68 @@ namespace RPGFramework.DI
             }
 
             return constructor.Invoke(args);
+        }
+
+        private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>()
+        {
+            Type concrete = typeof(TConcrete);
+            CacheConstructorAndParams(concrete);
+
+            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete), LazyThreadSafetyMode.None);
+
+            foreach (Type iface in concrete.GetInterfaces())
+            {
+                if (m_Bindings.ContainsKey(iface))
+                {
+                    Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(BindInterfacesToSelfSingletonInternal)} binding already exists for type [{iface}]"));
+                    return null;
+                }
+                
+                m_Bindings[iface] = () => lazy.Value;
+            }
+
+            return new NonLazyBinding(lazy);
+        }
+        
+        private INonLazyBinding BindInterfacesToSelfSingletonIfNotRegisteredInternal<TConcrete>()
+        {
+            Type concrete = typeof(TConcrete);
+            CacheConstructorAndParams(concrete);
+
+            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete), LazyThreadSafetyMode.None);
+
+            foreach (Type iface in concrete.GetInterfaces())
+            {
+                if (m_Bindings.ContainsKey(iface))
+                {
+                    continue;
+                }
+                
+                m_Bindings[iface] = () => lazy.Value;
+            }
+
+            return new NonLazyBinding(lazy);
+        }
+        
+        private INonLazyBinding ForceBindInterfacesToSelfSingletonInternal<TConcrete>()
+        {
+            Type concrete = typeof(TConcrete);
+            CacheConstructorAndParams(concrete);
+
+            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete), LazyThreadSafetyMode.None);
+
+            foreach (Type iface in concrete.GetInterfaces())
+            {
+                if (m_Bindings.ContainsKey(iface))
+                {
+                    Debug.LogException(new ArgumentException($"{nameof(IDIContainer)}::{nameof(BindInterfacesToSelfSingletonInternal)} binding already exists for type [{iface}]"));
+                    return null;
+                }
+                
+                m_Bindings[iface] = () => lazy.Value;
+            }
+
+            return new NonLazyBinding(lazy);
         }
 
         private static ConstructorInfo FindBestConstructor(Type concreteType)
