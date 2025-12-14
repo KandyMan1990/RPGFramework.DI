@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
@@ -195,7 +196,9 @@ namespace RPGFramework.DI
 
         private static ConstructorInfo FindBestConstructor(Type concreteType)
         {
-            ConstructorInfo[] constructors = concreteType.GetConstructors();
+            ConstructorInfo[] constructors = concreteType.GetConstructors()
+                                                         .Where(c => !c.IsDefined(typeof(ObsoleteAttribute), inherit: true))
+                                                         .ToArray();
 
             if (constructors.Length == 1)
             {
