@@ -56,6 +56,9 @@ namespace RPGFramework.DI
 
         private IDIContainerNode m_Fallback;
 
+        [ThreadStatic]
+        private static Stack<Type> m_ResolutionStack;
+
         public DIContainer()
         {
             m_Bindings               = new Dictionary<Type, Func<object>>();
@@ -140,19 +143,44 @@ namespace RPGFramework.DI
 
         object IDIResolver.Resolve(Type type)
         {
-            IDIContainerNode container = this;
+            m_ResolutionStack ??= new Stack<Type>(8);
 
-            while (container != null)
+            if (m_ResolutionStack.Contains(type))
             {
-                if (container.TryGetBinding(type, out Func<object> creator))
-                {
-                    return creator();
-                }
-
-                container = container.GetFallback();
+                throw BuildCircularDependencyException(type);
             }
 
-            throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
+            m_ResolutionStack.Push(type);
+
+            try
+            {
+                IDIContainerNode container = this;
+
+                while (container != null)
+                {
+                    if (container.TryGetBinding(type, out Func<object> creator))
+                    {
+                        return creator();
+                    }
+
+                    container = container.GetFallback();
+                }
+
+                throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
+            }
+            finally
+            {
+                m_ResolutionStack.Pop();
+            }
+        }
+
+        private static Exception BuildCircularDependencyException(Type repeating)
+        {
+            var chain = m_ResolutionStack.Reverse().Append(repeating);
+
+            string path = string.Join(" -> ", chain.Select(t => t.Name));
+
+            return new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(BuildCircularDependencyException)} Circular dependency detected:\n{path}");
         }
 
         private bool HandleExistingBinding(Type type, BindPolicy bindPolicy, string context)
