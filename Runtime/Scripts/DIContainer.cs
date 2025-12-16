@@ -52,6 +52,7 @@ namespace RPGFramework.DI
         private readonly Dictionary<Type, Func<object>>    m_Bindings;
         private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
         private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
+        private readonly Dictionary<Type, InjectInfo>      m_InjectCache;
         private readonly List<IDisposable>                 m_Disposables;
         private readonly IDIResolver                       m_DiResolver;
 
@@ -65,6 +66,7 @@ namespace RPGFramework.DI
             m_Bindings               = new Dictionary<Type, Func<object>>();
             m_ConstructorCache       = new Dictionary<Type, ConstructorInfo>();
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
+            m_InjectCache            = new Dictionary<Type, InjectInfo>();
             m_Disposables            = new List<IDisposable>();
             m_DiResolver             = this;
         }
@@ -304,7 +306,15 @@ namespace RPGFramework.DI
                     args[i] = m_DiResolver.Resolve(parameters[i]);
                 }
 
-                return constructor.Invoke(args);
+                object instance = constructor.Invoke(args);
+
+                InjectInfo injectInfo = m_InjectCache[concreteType];
+                if (!ReferenceEquals(injectInfo, InjectInfo.Empty))
+                {
+                    InjectInto(instance, injectInfo);
+                }
+
+                return instance;
             }
             finally
             {
@@ -369,6 +379,72 @@ namespace RPGFramework.DI
             {
                 parameterTypes                         = GetConstructorParams(constructorInfo);
                 m_ConstructorParamsCache[concreteType] = parameterTypes;
+            }
+
+            if (!m_InjectCache.ContainsKey(concreteType))
+            {
+                m_InjectCache[concreteType] = BuildInjectInfo(concreteType);
+            }
+        }
+
+        private static InjectInfo BuildInjectInfo(Type concreteType)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+            ConstructorInfo[] badConstructors = concreteType.GetConstructors(flags)
+                                                            .Where(c => c.IsDefined(typeof(InjectAttribute), inherit: true))
+                                                            .ToArray();
+
+            if (badConstructors.Length > 0)
+            {
+                throw new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(BuildInjectInfo)} Type [{concreteType}] has [Inject] on a constructor.  Constructor injection is implicit and does not support [Inject]");
+            }
+
+            FieldInfo[] fields = concreteType.GetFields(flags)
+                                             .Where(f => f.IsDefined(typeof(InjectAttribute), inherit: true))
+                                             .ToArray();
+
+            PropertyInfo[] properties = concreteType.GetProperties(flags)
+                                                    .Where(p => p.CanWrite && p.IsDefined(typeof(InjectAttribute), inherit: true))
+                                                    .ToArray();
+
+            MethodInfo[] methods = concreteType.GetMethods(flags)
+                                               .Where(m => !m.IsStatic && m.IsDefined(typeof(InjectAttribute), inherit: true))
+                                               .ToArray();
+
+            if (fields.Length == 0 && properties.Length == 0 && methods.Length == 0)
+            {
+                return InjectInfo.Empty;
+            }
+
+            return new InjectInfo(fields, properties, methods);
+        }
+
+        private void InjectInto(object instance, InjectInfo injectInfo)
+        {
+            foreach (FieldInfo field in injectInfo.Fields)
+            {
+                object value = m_DiResolver.Resolve(field.FieldType);
+                field.SetValue(instance, value);
+            }
+
+            foreach (PropertyInfo property in injectInfo.Properties)
+            {
+                object value = m_DiResolver.Resolve(property.PropertyType);
+                property.SetValue(instance, value);
+            }
+
+            foreach (MethodInfo method in injectInfo.Methods)
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                object[]        args       = new object[parameters.Length];
+
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    args[i] = m_DiResolver.Resolve(parameters[i].ParameterType);
+                }
+
+                method.Invoke(instance, args);
             }
         }
     }
