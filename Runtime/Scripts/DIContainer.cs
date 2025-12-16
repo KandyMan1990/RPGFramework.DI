@@ -268,12 +268,24 @@ namespace RPGFramework.DI
 
         private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy)
         {
-            Type concrete = typeof(TConcrete);
-            CacheConstructorAndParams(concrete);
+            Type tConcrete = typeof(TConcrete);
+            CacheConstructorAndParams(tConcrete);
 
-            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(concrete), LazyThreadSafetyMode.None);
+            Lazy<object> lazy = new Lazy<object>(() =>
+                                                 {
+                                                     object instance = CreateInstance(tConcrete);
 
-            foreach (Type iface in concrete.GetInterfaces())
+                                                     if (instance is IDisposable disposable)
+                                                     {
+                                                         m_Disposables.Add(disposable);
+                                                     }
+
+                                                     return instance;
+
+                                                 },
+                                                 LazyThreadSafetyMode.None);
+
+            foreach (Type iface in tConcrete.GetInterfaces())
             {
                 if (!HandleExistingBinding(iface, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal)))
                 {
