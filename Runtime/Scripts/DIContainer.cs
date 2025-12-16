@@ -13,7 +13,7 @@ namespace RPGFramework.DI
         Overwrite
     }
 
-    public interface IDIContainer
+    public interface IDIContainer : IDisposable
     {
         void            BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
         INonLazyBinding BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
@@ -52,6 +52,7 @@ namespace RPGFramework.DI
         private readonly Dictionary<Type, Func<object>>    m_Bindings;
         private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
         private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
+        private readonly List<IDisposable>                 m_Disposables;
         private readonly IDIResolver                       m_DiResolver;
 
         private IDIContainerNode m_Fallback;
@@ -64,6 +65,7 @@ namespace RPGFramework.DI
             m_Bindings               = new Dictionary<Type, Func<object>>();
             m_ConstructorCache       = new Dictionary<Type, ConstructorInfo>();
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
+            m_Disposables            = new List<IDisposable>();
             m_DiResolver             = this;
         }
 
@@ -174,9 +176,22 @@ namespace RPGFramework.DI
             }
         }
 
+        void IDisposable.Dispose()
+        {
+            for (int i = m_Disposables.Count - 1; i >= 0; i--)
+            {
+                m_Disposables[i].Dispose();
+            }
+
+            m_Disposables.Clear();
+            m_Bindings.Clear();
+            m_ConstructorCache.Clear();
+            m_ConstructorParamsCache.Clear();
+        }
+
         private static Exception BuildCircularDependencyException(Type repeating)
         {
-            var chain = m_ResolutionStack.Reverse().Append(repeating);
+            IEnumerable<Type> chain = m_ResolutionStack.Reverse().Append(repeating);
 
             string path = string.Join(" -> ", chain.Select(t => t.Name));
 
@@ -218,7 +233,19 @@ namespace RPGFramework.DI
                 return null;
             }
 
-            Lazy<object> lazy = new Lazy<object>(() => CreateInstance(tConcrete), LazyThreadSafetyMode.None);
+            Lazy<object> lazy = new Lazy<object>(() =>
+                                                 {
+                                                     object instance = CreateInstance(tConcrete);
+
+                                                     if (instance is IDisposable disposable)
+                                                     {
+                                                         m_Disposables.Add(disposable);
+                                                     }
+
+                                                     return instance;
+
+                                                 },
+                                                 LazyThreadSafetyMode.None);
             m_Bindings[tInterface] = () => lazy.Value;
 
             return new NonLazyBinding(lazy);
@@ -229,6 +256,11 @@ namespace RPGFramework.DI
             if (!HandleExistingBinding(tInterface, bindPolicy, nameof(BindInstance)))
             {
                 return;
+            }
+
+            if (instance is IDisposable disposable)
+            {
+                m_Disposables.Add(disposable);
             }
 
             m_Bindings[tInterface] = () => instance;
