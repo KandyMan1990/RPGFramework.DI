@@ -58,7 +58,7 @@ namespace RPGFramework.DI
         private IDIContainerNode m_Fallback;
 
         [ThreadStatic]
-        private static Stack<Type> m_ResolutionStack;
+        private static Stack<Type> m_ConstructionStack;
 
         public DIContainer()
         {
@@ -145,35 +145,19 @@ namespace RPGFramework.DI
 
         object IDIResolver.Resolve(Type type)
         {
-            m_ResolutionStack ??= new Stack<Type>(8);
+            IDIContainerNode container = this;
 
-            if (m_ResolutionStack.Contains(type))
+            while (container != null)
             {
-                throw BuildCircularDependencyException(type);
-            }
-
-            m_ResolutionStack.Push(type);
-
-            try
-            {
-                IDIContainerNode container = this;
-
-                while (container != null)
+                if (container.TryGetBinding(type, out Func<object> creator))
                 {
-                    if (container.TryGetBinding(type, out Func<object> creator))
-                    {
-                        return creator();
-                    }
-
-                    container = container.GetFallback();
+                    return creator();
                 }
 
-                throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
+                container = container.GetFallback();
             }
-            finally
-            {
-                m_ResolutionStack.Pop();
-            }
+
+            throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
         }
 
         void IDisposable.Dispose()
@@ -191,7 +175,7 @@ namespace RPGFramework.DI
 
         private static Exception BuildCircularDependencyException(Type repeating)
         {
-            IEnumerable<Type> chain = m_ResolutionStack.Reverse().Append(repeating);
+            IEnumerable<Type> chain = m_ConstructionStack.Reverse().Append(repeating);
 
             string path = string.Join(" -> ", chain.Select(t => t.Name));
 
@@ -300,17 +284,32 @@ namespace RPGFramework.DI
 
         private object CreateInstance(Type concreteType)
         {
-            ConstructorInfo constructor = m_ConstructorCache[concreteType];
+            m_ConstructionStack ??= new Stack<Type>(8);
 
-            Type[]   parameters = m_ConstructorParamsCache[concreteType];
-            object[] args       = new object[parameters.Length];
-
-            for (int i = 0; i < parameters.Length; i++)
+            if (m_ConstructionStack.Contains(concreteType))
             {
-                args[i] = m_DiResolver.Resolve(parameters[i]);
+                throw BuildCircularDependencyException(concreteType);
             }
 
-            return constructor.Invoke(args);
+            m_ConstructionStack.Push(concreteType);
+
+            try
+            {
+                ConstructorInfo constructor = m_ConstructorCache[concreteType];
+                Type[]          parameters  = m_ConstructorParamsCache[concreteType];
+                object[]        args        = new object[parameters.Length];
+
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    args[i] = m_DiResolver.Resolve(parameters[i]);
+                }
+
+                return constructor.Invoke(args);
+            }
+            finally
+            {
+                m_ConstructionStack.Pop();
+            }
         }
 
         private static ConstructorInfo FindBestConstructor(Type concreteType)
