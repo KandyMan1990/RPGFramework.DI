@@ -32,7 +32,8 @@ namespace RPGFramework.DI
     public interface IDIResolver
     {
         T      Resolve<T>();
-        object Resolve(Type type);
+        object Resolve(Type      type);
+        void   InjectInto(object instance);
     }
 
     public interface IDIContainerNode
@@ -160,6 +161,24 @@ namespace RPGFramework.DI
             }
 
             throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
+        }
+
+        void IDIResolver.InjectInto(object instance)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+
+            Type type = instance.GetType();
+
+            CacheConstructorAndParams(type);
+
+            InjectInfo injectInfo = m_InjectCache[type];
+            if (!ReferenceEquals(injectInfo, InjectInfo.Empty))
+            {
+                InjectInto(instance, injectInfo);
+            }
         }
 
         void IDisposable.Dispose()
