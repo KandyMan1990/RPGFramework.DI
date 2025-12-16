@@ -492,7 +492,18 @@ namespace RPGFramework.DI
 
                             for (int i = 0; i < parameters.Length; i++)
                             {
-                                args[i] = m_DiResolver.Resolve(parameters[i].ParameterType);
+                                ParameterInfo parameter = parameters[i];
+
+                                bool optional = parameter.IsDefined(typeof(InjectOptionalAttribute), true);
+
+                                try
+                                {
+                                    args[i] = m_DiResolver.Resolve(parameters[i].ParameterType);
+                                }
+                                catch when (optional)
+                                {
+                                    args[i] = null;
+                                }
                             }
 
                             method.Invoke(instance, args);

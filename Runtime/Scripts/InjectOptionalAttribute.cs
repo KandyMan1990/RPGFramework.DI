@@ -2,7 +2,7 @@
 
 namespace RPGFramework.DI
 {
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, Inherited = true, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method | AttributeTargets.Parameter, Inherited = true, AllowMultiple = false)]
     public class InjectOptionalAttribute : Attribute
     {
     }
