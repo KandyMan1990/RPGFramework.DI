@@ -400,51 +400,89 @@ namespace RPGFramework.DI
                 throw new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(BuildInjectInfo)} Type [{concreteType}] has [Inject] on a constructor.  Constructor injection is implicit and does not support [Inject]");
             }
 
-            FieldInfo[] fields = concreteType.GetFields(flags)
-                                             .Where(f => f.IsDefined(typeof(InjectAttribute), inherit: true))
-                                             .ToArray();
+            List<InjectMember> members = new List<InjectMember>();
 
-            PropertyInfo[] properties = concreteType.GetProperties(flags)
-                                                    .Where(p => p.CanWrite && p.IsDefined(typeof(InjectAttribute), inherit: true))
-                                                    .ToArray();
-
-            MethodInfo[] methods = concreteType.GetMethods(flags)
-                                               .Where(m => !m.IsStatic && m.IsDefined(typeof(InjectAttribute), inherit: true))
-                                               .ToArray();
-
-            if (fields.Length == 0 && properties.Length == 0 && methods.Length == 0)
+            foreach (FieldInfo field in concreteType.GetFields(flags))
             {
-                return InjectInfo.Empty;
+                if (field.IsDefined(typeof(InjectAttribute), true))
+                {
+                    members.Add(new InjectMember(field, false));
+                }
+                else if (field.IsDefined(typeof(InjectOptionalAttribute), true))
+                {
+                    members.Add(new InjectMember(field, true));
+                }
             }
 
-            return new InjectInfo(fields, properties, methods);
+            foreach (PropertyInfo property in concreteType.GetProperties(flags))
+            {
+                if (!property.CanWrite)
+                {
+                    continue;
+                }
+
+                if (property.IsDefined(typeof(InjectAttribute), true))
+                {
+                    members.Add(new InjectMember(property, false));
+                }
+                else if (property.IsDefined(typeof(InjectOptionalAttribute), true))
+                {
+                    members.Add(new InjectMember(property, true));
+                }
+            }
+
+            foreach (MethodInfo method in concreteType.GetMethods(flags))
+            {
+                if (method.IsStatic)
+                {
+                    continue;
+                }
+
+                if (method.IsDefined(typeof(InjectAttribute), true))
+                {
+                    members.Add(new InjectMember(method, false));
+                }
+                else if (method.IsDefined(typeof(InjectOptionalAttribute), true))
+                {
+                    members.Add(new InjectMember(method, true));
+                }
+            }
+
+            return members.Count == 0 ? InjectInfo.Empty : new InjectInfo(members.ToArray());
         }
 
         private void InjectInto(object instance, InjectInfo injectInfo)
         {
-            foreach (FieldInfo field in injectInfo.Fields)
+            foreach (InjectMember entry in injectInfo.Members)
             {
-                object value = m_DiResolver.Resolve(field.FieldType);
-                field.SetValue(instance, value);
-            }
-
-            foreach (PropertyInfo property in injectInfo.Properties)
-            {
-                object value = m_DiResolver.Resolve(property.PropertyType);
-                property.SetValue(instance, value);
-            }
-
-            foreach (MethodInfo method in injectInfo.Methods)
-            {
-                ParameterInfo[] parameters = method.GetParameters();
-                object[]        args       = new object[parameters.Length];
-
-                for (int i = 0; i < parameters.Length; i++)
+                try
                 {
-                    args[i] = m_DiResolver.Resolve(parameters[i].ParameterType);
-                }
+                    switch (entry.Member)
+                    {
+                        case FieldInfo field:
+                            object fieldValue = m_DiResolver.Resolve(field.FieldType);
+                            field.SetValue(instance, fieldValue);
+                            break;
+                        case PropertyInfo property:
+                            object propertyValue = m_DiResolver.Resolve(property.PropertyType);
+                            property.SetValue(instance, propertyValue);
+                            break;
+                        case MethodInfo method:
+                            ParameterInfo[] parameters = method.GetParameters();
+                            object[]        args       = new object[parameters.Length];
 
-                method.Invoke(instance, args);
+                            for (int i = 0; i < parameters.Length; i++)
+                            {
+                                args[i] = m_DiResolver.Resolve(parameters[i].ParameterType);
+                            }
+
+                            method.Invoke(instance, args);
+                            break;
+                    }
+                }
+                catch when (entry.Optional)
+                {
+                }
             }
         }
     }

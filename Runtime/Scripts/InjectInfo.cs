@@ -3,21 +3,27 @@ using System.Reflection;
 
 namespace RPGFramework.DI
 {
+    internal readonly struct InjectMember
+    {
+        public readonly MemberInfo Member;
+        public readonly bool       Optional;
+
+        internal InjectMember(MemberInfo member, bool optional)
+        {
+            Member   = member;
+            Optional = optional;
+        }
+    }
+
     internal sealed class InjectInfo
     {
-        public FieldInfo[]    Fields     { get; }
-        public PropertyInfo[] Properties { get; }
-        public MethodInfo[]   Methods    { get; }
+        internal readonly InjectMember[] Members;
 
-        public InjectInfo(FieldInfo[] fields, PropertyInfo[] properties, MethodInfo[] methods)
+        internal InjectInfo(InjectMember[] members)
         {
-            Fields     = fields;
-            Properties = properties;
-            Methods    = methods;
+            Members = members;
         }
 
-        internal static readonly InjectInfo Empty = new InjectInfo(Array.Empty<FieldInfo>(),
-                                                                 Array.Empty<PropertyInfo>(),
-                                                                 Array.Empty<MethodInfo>());
+        internal static readonly InjectInfo Empty = new InjectInfo(Array.Empty<InjectMember>());
     }
 }
