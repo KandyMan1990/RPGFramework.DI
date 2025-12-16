@@ -32,7 +32,8 @@ namespace RPGFramework.DI
     public interface IDIResolver
     {
         T      Resolve<T>();
-        object Resolve(Type type);
+        object Resolve(Type      type);
+        void   InjectInto(object instance);
     }
 
     public interface IDIContainerNode
@@ -52,6 +53,7 @@ namespace RPGFramework.DI
         private readonly Dictionary<Type, Func<object>>    m_Bindings;
         private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
         private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
+        private readonly Dictionary<Type, InjectInfo>      m_InjectCache;
         private readonly List<IDisposable>                 m_Disposables;
         private readonly IDIResolver                       m_DiResolver;
 
@@ -65,6 +67,7 @@ namespace RPGFramework.DI
             m_Bindings               = new Dictionary<Type, Func<object>>();
             m_ConstructorCache       = new Dictionary<Type, ConstructorInfo>();
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
+            m_InjectCache            = new Dictionary<Type, InjectInfo>();
             m_Disposables            = new List<IDisposable>();
             m_DiResolver             = this;
         }
@@ -158,6 +161,24 @@ namespace RPGFramework.DI
             }
 
             throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
+        }
+
+        void IDIResolver.InjectInto(object instance)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+
+            Type type = instance.GetType();
+
+            CacheConstructorAndParams(type);
+
+            InjectInfo injectInfo = m_InjectCache[type];
+            if (!ReferenceEquals(injectInfo, InjectInfo.Empty))
+            {
+                InjectInto(instance, injectInfo);
+            }
         }
 
         void IDisposable.Dispose()
@@ -304,7 +325,15 @@ namespace RPGFramework.DI
                     args[i] = m_DiResolver.Resolve(parameters[i]);
                 }
 
-                return constructor.Invoke(args);
+                object instance = constructor.Invoke(args);
+
+                InjectInfo injectInfo = m_InjectCache[concreteType];
+                if (!ReferenceEquals(injectInfo, InjectInfo.Empty))
+                {
+                    InjectInto(instance, injectInfo);
+                }
+
+                return instance;
             }
             finally
             {
@@ -369,6 +398,121 @@ namespace RPGFramework.DI
             {
                 parameterTypes                         = GetConstructorParams(constructorInfo);
                 m_ConstructorParamsCache[concreteType] = parameterTypes;
+            }
+
+            if (!m_InjectCache.ContainsKey(concreteType))
+            {
+                m_InjectCache[concreteType] = BuildInjectInfo(concreteType);
+            }
+        }
+
+        private static InjectInfo BuildInjectInfo(Type concreteType)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+            ConstructorInfo[] badConstructors = concreteType.GetConstructors(flags)
+                                                            .Where(c => c.IsDefined(typeof(InjectAttribute), inherit: true))
+                                                            .ToArray();
+
+            if (badConstructors.Length > 0)
+            {
+                throw new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(BuildInjectInfo)} Type [{concreteType}] has [Inject] on a constructor.  Constructor injection is implicit and does not support [Inject]");
+            }
+
+            List<InjectMember> members = new List<InjectMember>();
+
+            foreach (FieldInfo field in concreteType.GetFields(flags))
+            {
+                if (field.IsDefined(typeof(InjectAttribute), true))
+                {
+                    members.Add(new InjectMember(field, false));
+                }
+                else if (field.IsDefined(typeof(InjectOptionalAttribute), true))
+                {
+                    members.Add(new InjectMember(field, true));
+                }
+            }
+
+            foreach (PropertyInfo property in concreteType.GetProperties(flags))
+            {
+                if (!property.CanWrite)
+                {
+                    continue;
+                }
+
+                if (property.IsDefined(typeof(InjectAttribute), true))
+                {
+                    members.Add(new InjectMember(property, false));
+                }
+                else if (property.IsDefined(typeof(InjectOptionalAttribute), true))
+                {
+                    members.Add(new InjectMember(property, true));
+                }
+            }
+
+            foreach (MethodInfo method in concreteType.GetMethods(flags))
+            {
+                if (method.IsStatic)
+                {
+                    continue;
+                }
+
+                if (method.IsDefined(typeof(InjectAttribute), true))
+                {
+                    members.Add(new InjectMember(method, false));
+                }
+                else if (method.IsDefined(typeof(InjectOptionalAttribute), true))
+                {
+                    members.Add(new InjectMember(method, true));
+                }
+            }
+
+            return members.Count == 0 ? InjectInfo.Empty : new InjectInfo(members.ToArray());
+        }
+
+        private void InjectInto(object instance, InjectInfo injectInfo)
+        {
+            foreach (InjectMember entry in injectInfo.Members)
+            {
+                try
+                {
+                    switch (entry.Member)
+                    {
+                        case FieldInfo field:
+                            object fieldValue = m_DiResolver.Resolve(field.FieldType);
+                            field.SetValue(instance, fieldValue);
+                            break;
+                        case PropertyInfo property:
+                            object propertyValue = m_DiResolver.Resolve(property.PropertyType);
+                            property.SetValue(instance, propertyValue);
+                            break;
+                        case MethodInfo method:
+                            ParameterInfo[] parameters = method.GetParameters();
+                            object[]        args       = new object[parameters.Length];
+
+                            for (int i = 0; i < parameters.Length; i++)
+                            {
+                                ParameterInfo parameter = parameters[i];
+
+                                bool optional = parameter.IsDefined(typeof(InjectOptionalAttribute), true);
+
+                                try
+                                {
+                                    args[i] = m_DiResolver.Resolve(parameters[i].ParameterType);
+                                }
+                                catch when (optional)
+                                {
+                                    args[i] = null;
+                                }
+                            }
+
+                            method.Invoke(instance, args);
+                            break;
+                    }
+                }
+                catch when (entry.Optional)
+                {
+                }
             }
         }
     }
