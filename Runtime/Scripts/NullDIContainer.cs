@@ -1,4 +1,5 @@
 ﻿using System;
+using UnityEngine;
 
 namespace RPGFramework.DI
 {
@@ -58,6 +59,28 @@ namespace RPGFramework.DI
         }
 
         INonLazyBinding IDIContainer.ForceBindInterfacesToSelfSingleton<TConcrete>()
+        {
+            return null;
+        }
+
+        void IDIContainer.BindPrefab<TInterface, TConcrete>(TConcrete prefab)
+        {
+        }
+
+        void IDIContainer.BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab)
+        {
+        }
+
+        void IDIContainer.ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab)
+        {
+        }
+
+        TInterface IDIContainer.ResolvePrefab<TInterface>(Transform parent)
+        {
+            return default;
+        }
+
+        T IDIContainer.InstantiateAndInject<T>(T prefab, Transform parent)
         {
             return null;
         }

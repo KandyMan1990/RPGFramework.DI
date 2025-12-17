@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace RPGFramework.DI
 {
@@ -27,6 +29,11 @@ namespace RPGFramework.DI
         INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
         INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
         INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
+        void            BindPrefab<TInterface, TConcrete>(TConcrete                prefab) where TConcrete : Component, TInterface;
+        void            BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+        void            ForceBindPrefab<TInterface, TConcrete>(TConcrete           prefab) where TConcrete : Component, TInterface;
+        TInterface      ResolvePrefab<TInterface>(Transform                        parent                   = null);
+        T               InstantiateAndInject<T>(T                                  prefab, Transform parent = null) where T : Component;
     }
 
     public interface IDIResolver
@@ -50,12 +57,13 @@ namespace RPGFramework.DI
 
     public class DIContainer : IDIContainer, IDIResolver, IDIContainerNode
     {
-        private readonly Dictionary<Type, Func<object>>    m_Bindings;
-        private readonly Dictionary<Type, ConstructorInfo> m_ConstructorCache;
-        private readonly Dictionary<Type, Type[]>          m_ConstructorParamsCache;
-        private readonly Dictionary<Type, InjectInfo>      m_InjectCache;
-        private readonly List<IDisposable>                 m_Disposables;
-        private readonly IDIResolver                       m_DiResolver;
+        private readonly Dictionary<Type, Func<object>>            m_Bindings;
+        private readonly Dictionary<Type, ConstructorInfo>         m_ConstructorCache;
+        private readonly Dictionary<Type, Type[]>                  m_ConstructorParamsCache;
+        private readonly Dictionary<Type, InjectInfo>              m_InjectCache;
+        private readonly Dictionary<Type, Func<Transform, object>> m_PrefabBindings;
+        private readonly List<IDisposable>                         m_Disposables;
+        private readonly IDIResolver                               m_DiResolver;
 
         private IDIContainerNode m_Fallback;
 
@@ -68,6 +76,7 @@ namespace RPGFramework.DI
             m_ConstructorCache       = new Dictionary<Type, ConstructorInfo>();
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
             m_InjectCache            = new Dictionary<Type, InjectInfo>();
+            m_PrefabBindings         = new Dictionary<Type, Func<Transform, object>>();
             m_Disposables            = new List<IDisposable>();
             m_DiResolver             = this;
         }
@@ -141,6 +150,47 @@ namespace RPGFramework.DI
             return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Overwrite);
         }
 
+        void IDIContainer.BindPrefab<TInterface, TConcrete>(TConcrete prefab)
+        {
+            BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.ErrorIfExists);
+        }
+
+        void IDIContainer.BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab)
+        {
+            BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.SkipIfExists);
+        }
+
+        void IDIContainer.ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab)
+        {
+            BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.Overwrite);
+        }
+
+        TInterface IDIContainer.ResolvePrefab<TInterface>(Transform parent)
+        {
+            Type type = typeof(TInterface);
+
+            if (!m_PrefabBindings.TryGetValue(type, out Func<Transform, object> factory))
+            {
+                throw new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(IDIContainer.ResolvePrefab)} No prefab binding exists for [{type}]");
+            }
+
+            return (TInterface)factory(parent);
+        }
+
+        T IDIContainer.InstantiateAndInject<T>(T prefab, Transform parent)
+        {
+            if (prefab == null)
+            {
+                throw new ArgumentNullException(nameof(prefab));
+            }
+
+            T instance = Object.Instantiate(prefab, parent);
+
+            m_DiResolver.InjectInto(instance);
+
+            return instance;
+        }
+
         T IDIResolver.Resolve<T>()
         {
             return (T)m_DiResolver.Resolve(typeof(T));
@@ -185,7 +235,14 @@ namespace RPGFramework.DI
         {
             for (int i = m_Disposables.Count - 1; i >= 0; i--)
             {
-                m_Disposables[i].Dispose();
+                try
+                {
+                    m_Disposables[i].Dispose();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
             }
 
             m_Disposables.Clear();
@@ -292,6 +349,11 @@ namespace RPGFramework.DI
 
             foreach (Type iface in tConcrete.GetInterfaces())
             {
+                if (iface == typeof(IDisposable))
+                {
+                    continue;
+                }
+
                 if (!HandleExistingBinding(iface, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal)))
                 {
                     continue;
@@ -301,6 +363,32 @@ namespace RPGFramework.DI
             }
 
             return new NonLazyBinding(lazy);
+        }
+
+        private void BindPrefabInternal<TInterface, TConcrete>(TConcrete prefab, BindPolicy bindPolicy) where TConcrete : Component, TInterface
+        {
+            if (prefab == null)
+            {
+                throw new ArgumentNullException(nameof(prefab));
+            }
+
+            Type interfaceType = typeof(TInterface);
+            Type concreteType  = typeof(TConcrete);
+
+            if (!HandleExistingBinding(interfaceType, bindPolicy, nameof(BindPrefabInternal)))
+            {
+                return;
+            }
+
+            CacheConstructorAndParams(concreteType);
+
+            m_PrefabBindings[interfaceType] = parent =>
+                                              {
+                                                  TConcrete instance = Object.Instantiate(prefab, parent);
+                                                  m_DiResolver.InjectInto(instance);
+
+                                                  return instance;
+                                              };
         }
 
         private object CreateInstance(Type concreteType)
@@ -472,6 +560,11 @@ namespace RPGFramework.DI
 
         private void InjectInto(object instance, InjectInfo injectInfo)
         {
+            if (instance is Object unityObj && unityObj == null)
+            {
+                return;
+            }
+
             foreach (InjectMember entry in injectInfo.Members)
             {
                 try
@@ -483,6 +576,13 @@ namespace RPGFramework.DI
                             field.SetValue(instance, fieldValue);
                             break;
                         case PropertyInfo property:
+                            MethodInfo setter = property.SetMethod;
+
+                            if (setter == null || setter.IsStatic)
+                            {
+                                break;
+                            }
+
                             object propertyValue = m_DiResolver.Resolve(property.PropertyType);
                             property.SetValue(instance, propertyValue);
                             break;
