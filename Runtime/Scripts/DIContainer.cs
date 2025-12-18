@@ -456,7 +456,9 @@ namespace RPGFramework.DI
 
         private static ConstructorInfo FindBestConstructor(Type concreteType)
         {
-            ConstructorInfo[] constructors = concreteType.GetConstructors()
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+            ConstructorInfo[] constructors = concreteType.GetConstructors(flags)
                                                          .Where(c => !c.IsDefined(typeof(ObsoleteAttribute), inherit: true))
                                                          .ToArray();
 
