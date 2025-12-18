@@ -20,27 +20,30 @@ namespace RPGFramework.DI
         void            BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
         INonLazyBinding BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
         void            BindSingletonFromInstance<TInterface>(TInterface instance);
+        INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
+        INonLazyBinding BindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
+        void            BindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
         void            BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
         INonLazyBinding BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
         void            BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
+        INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
+        INonLazyBinding BindInterfacesToAndConcreteSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
+        void            BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
         void            ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
         INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
         void            ForceBindSingletonFromInstance<TInterface>(TInterface instance);
-        INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
-        INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
         INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
-        void            BindPrefab<TInterface, TConcrete>(TConcrete                prefab) where TConcrete : Component, TInterface;
-        void            BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
-        void            ForceBindPrefab<TInterface, TConcrete>(TConcrete           prefab) where TConcrete : Component, TInterface;
-        TInterface      ResolvePrefab<TInterface>(Transform                        parent                   = null);
-        T               InstantiateAndInject<T>(T                                  prefab, Transform parent = null) where T : Component;
+        INonLazyBinding ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
+        void            ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
     }
 
     public interface IDIResolver
     {
-        T      Resolve<T>();
-        object Resolve(Type      type);
-        void   InjectInto(object instance);
+        T          Resolve<T>();
+        object     Resolve(Type                        type);
+        TInterface ResolvePrefab<TInterface>(Transform parent = null);
+        void       InjectInto(object                   instance);
+        T          InstantiateAndInject<T>(T           prefab, Transform parent = null) where T : Component;
     }
 
     public interface IDIContainerNode
@@ -137,17 +140,32 @@ namespace RPGFramework.DI
 
         INonLazyBinding IDIContainer.BindInterfacesToSelfSingleton<TConcrete>()
         {
-            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.ErrorIfExists);
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.ErrorIfExists, false);
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesAndConcreteToSelfSingleton<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.ErrorIfExists, true);
         }
 
         INonLazyBinding IDIContainer.BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>()
         {
-            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.SkipIfExists);
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.SkipIfExists, false);
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesToAndConcreteSelfSingletonIfNotRegistered<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.SkipIfExists, true);
         }
 
         INonLazyBinding IDIContainer.ForceBindInterfacesToSelfSingleton<TConcrete>()
         {
-            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Overwrite);
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Overwrite, false);
+        }
+
+        INonLazyBinding IDIContainer.ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Overwrite, true);
         }
 
         void IDIContainer.BindPrefab<TInterface, TConcrete>(TConcrete prefab)
@@ -165,19 +183,19 @@ namespace RPGFramework.DI
             BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.Overwrite);
         }
 
-        TInterface IDIContainer.ResolvePrefab<TInterface>(Transform parent)
+        TInterface IDIResolver.ResolvePrefab<TInterface>(Transform parent)
         {
             Type type = typeof(TInterface);
 
             if (!m_PrefabBindings.TryGetValue(type, out Func<Transform, object> factory))
             {
-                throw new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(IDIContainer.ResolvePrefab)} No prefab binding exists for [{type}]");
+                throw new InvalidOperationException($"{nameof(IDIContainer)}::{nameof(IDIResolver.ResolvePrefab)} No prefab binding exists for [{type}]");
             }
 
             return (TInterface)factory(parent);
         }
 
-        T IDIContainer.InstantiateAndInject<T>(T prefab, Transform parent)
+        T IDIResolver.InstantiateAndInject<T>(T prefab, Transform parent)
         {
             if (prefab == null)
             {
@@ -328,7 +346,7 @@ namespace RPGFramework.DI
             m_Bindings[tInterface] = () => instance;
         }
 
-        private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy)
+        private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy, bool includeConcrete)
         {
             Type tConcrete = typeof(TConcrete);
             CacheConstructorAndParams(tConcrete);
@@ -347,19 +365,26 @@ namespace RPGFramework.DI
                                                  },
                                                  LazyThreadSafetyMode.None);
 
-            foreach (Type iface in tConcrete.GetInterfaces())
+            List<Type> typesToBind = new List<Type>(tConcrete.GetInterfaces());
+
+            if (!includeConcrete)
             {
-                if (iface == typeof(IDisposable))
+                typesToBind.Add(tConcrete);
+            }
+
+            foreach (Type typeToBind in typesToBind)
+            {
+                if (typeToBind == typeof(IDisposable))
                 {
                     continue;
                 }
 
-                if (!HandleExistingBinding(iface, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal)))
+                if (!HandleExistingBinding(typeToBind, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal)))
                 {
                     continue;
                 }
 
-                m_Bindings[iface] = () => lazy.Value;
+                m_Bindings[typeToBind] = () => lazy.Value;
             }
 
             return new NonLazyBinding(lazy);
@@ -431,7 +456,9 @@ namespace RPGFramework.DI
 
         private static ConstructorInfo FindBestConstructor(Type concreteType)
         {
-            ConstructorInfo[] constructors = concreteType.GetConstructors()
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+            ConstructorInfo[] constructors = concreteType.GetConstructors(flags)
                                                          .Where(c => !c.IsDefined(typeof(ObsoleteAttribute), inherit: true))
                                                          .ToArray();
 
