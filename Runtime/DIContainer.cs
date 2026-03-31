@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -50,7 +49,7 @@ namespace RPGFramework.DI
     {
         IDIContainerNode GetFallback();
         void             SetFallback(IDIContainerNode fallback);
-        bool             TryGetBinding(Type           type, out Func<object> creator);
+        bool             TryGetBinding(Type           type, out Func<IDIContainerNode, object> creator);
     }
 
     public interface INonLazyBinding
@@ -60,13 +59,13 @@ namespace RPGFramework.DI
 
     public class DIContainer : IDIContainer, IDIResolver, IDIContainerNode
     {
-        private readonly Dictionary<Type, Func<object>>            m_Bindings;
-        private readonly Dictionary<Type, ConstructorInfo>         m_ConstructorCache;
-        private readonly Dictionary<Type, Type[]>                  m_ConstructorParamsCache;
-        private readonly Dictionary<Type, InjectInfo>              m_InjectCache;
-        private readonly Dictionary<Type, Func<Transform, object>> m_PrefabBindings;
-        private readonly List<IDisposable>                         m_Disposables;
-        private readonly IDIResolver                               m_DiResolver;
+        private readonly Dictionary<Type, Func<IDIContainerNode, object>> m_Bindings;
+        private readonly Dictionary<Type, ConstructorInfo>                m_ConstructorCache;
+        private readonly Dictionary<Type, Type[]>                         m_ConstructorParamsCache;
+        private readonly Dictionary<Type, InjectInfo>                     m_InjectCache;
+        private readonly Dictionary<Type, Func<Transform, object>>        m_PrefabBindings;
+        private readonly List<IDisposable>                                m_Disposables;
+        private readonly IDIResolver                                      m_DiResolver;
 
         private IDIContainerNode m_Fallback;
 
@@ -75,7 +74,7 @@ namespace RPGFramework.DI
 
         public DIContainer()
         {
-            m_Bindings               = new Dictionary<Type, Func<object>>();
+            m_Bindings               = new Dictionary<Type, Func<IDIContainerNode, object>>();
             m_ConstructorCache       = new Dictionary<Type, ConstructorInfo>();
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
             m_InjectCache            = new Dictionary<Type, InjectInfo>();
@@ -91,7 +90,7 @@ namespace RPGFramework.DI
             m_Fallback = fallback;
         }
 
-        bool IDIContainerNode.TryGetBinding(Type type, out Func<object> creator) => m_Bindings.TryGetValue(type, out creator);
+        bool IDIContainerNode.TryGetBinding(Type type, out Func<IDIContainerNode, object> creator) => m_Bindings.TryGetValue(type, out creator);
 
         void IDIContainer.BindTransient<TInterface, TConcrete>()
         {
@@ -214,21 +213,26 @@ namespace RPGFramework.DI
             return (T)m_DiResolver.Resolve(typeof(T));
         }
 
-        object IDIResolver.Resolve(Type type)
+        private object ResolveWithContext(Type type, IDIContainerNode context)
         {
-            IDIContainerNode container = this;
+            IDIContainerNode container = context;
 
             while (container != null)
             {
-                if (container.TryGetBinding(type, out Func<object> creator))
+                if (container.TryGetBinding(type, out Func<IDIContainerNode, object> creator))
                 {
-                    return creator();
+                    return creator(context);
                 }
 
                 container = container.GetFallback();
             }
 
-            throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(IDIResolver.Resolve)} No binding exists for type [{type}] in container or its fallbacks");
+            throw new InvalidOperationException($"{nameof(IDIResolver)}::{nameof(ResolveWithContext)} No binding exists for type [{type}] in container or its fallbacks");
+        }
+
+        object IDIResolver.Resolve(Type type)
+        {
+            return ResolveWithContext(type, this);
         }
 
         void IDIResolver.InjectInto(object instance)
@@ -245,7 +249,7 @@ namespace RPGFramework.DI
             InjectInfo injectInfo = m_InjectCache[type];
             if (!ReferenceEquals(injectInfo, InjectInfo.Empty))
             {
-                InjectInto(instance, injectInfo);
+                InjectInto(instance, injectInfo, this);
             }
         }
 
@@ -309,26 +313,25 @@ namespace RPGFramework.DI
 
             if (!singleton)
             {
-                m_Bindings[tInterface] = () => CreateInstance(tConcrete);
+                m_Bindings[tInterface] = ctx => CreateInstance(tConcrete, ctx);
                 return null;
             }
 
-            Lazy<object> lazy = new Lazy<object>(() =>
-                                                 {
-                                                     object instance = CreateInstance(tConcrete);
-
-                                                     if (instance is IDisposable disposable)
+            ContextualLazy lazy = new ContextualLazy(ctx =>
                                                      {
-                                                         m_Disposables.Add(disposable);
-                                                     }
+                                                         object instance = CreateInstance(tConcrete, ctx);
 
-                                                     return instance;
+                                                         if (instance is IDisposable disposable)
+                                                         {
+                                                             m_Disposables.Add(disposable);
+                                                         }
 
-                                                 },
-                                                 LazyThreadSafetyMode.None);
-            m_Bindings[tInterface] = () => lazy.Value;
+                                                         return instance;
+                                                     });
 
-            return new NonLazyBinding(lazy);
+            m_Bindings[tInterface] = ctx => lazy.GetValue(ctx);
+
+            return new NonLazyBinding(() => lazy.GetValue(this));
         }
 
         private void BindInstance(Type tInterface, object instance, BindPolicy bindPolicy)
@@ -343,7 +346,7 @@ namespace RPGFramework.DI
                 m_Disposables.Add(disposable);
             }
 
-            m_Bindings[tInterface] = () => instance;
+            m_Bindings[tInterface] = ctx => instance;
         }
 
         private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy, bool includeConcrete)
@@ -351,19 +354,17 @@ namespace RPGFramework.DI
             Type tConcrete = typeof(TConcrete);
             CacheConstructorAndParams(tConcrete);
 
-            Lazy<object> lazy = new Lazy<object>(() =>
-                                                 {
-                                                     object instance = CreateInstance(tConcrete);
-
-                                                     if (instance is IDisposable disposable)
+            ContextualLazy lazy = new ContextualLazy(ctx =>
                                                      {
-                                                         m_Disposables.Add(disposable);
-                                                     }
+                                                         object instance = CreateInstance(tConcrete, ctx);
 
-                                                     return instance;
+                                                         if (instance is IDisposable disposable)
+                                                         {
+                                                             m_Disposables.Add(disposable);
+                                                         }
 
-                                                 },
-                                                 LazyThreadSafetyMode.None);
+                                                         return instance;
+                                                     });
 
             List<Type> typesToBind = new List<Type>(tConcrete.GetInterfaces());
 
@@ -384,10 +385,10 @@ namespace RPGFramework.DI
                     continue;
                 }
 
-                m_Bindings[typeToBind] = () => lazy.Value;
+                m_Bindings[typeToBind] = ctx => lazy.GetValue(ctx);
             }
 
-            return new NonLazyBinding(lazy);
+            return new NonLazyBinding(() => lazy.GetValue(this));
         }
 
         private void BindPrefabInternal<TInterface, TConcrete>(TConcrete prefab, BindPolicy bindPolicy) where TConcrete : Component, TInterface
@@ -416,7 +417,7 @@ namespace RPGFramework.DI
                                               };
         }
 
-        private object CreateInstance(Type concreteType)
+        private object CreateInstance(Type concreteType, IDIContainerNode context)
         {
             m_ConstructionStack ??= new Stack<Type>(8);
 
@@ -435,7 +436,7 @@ namespace RPGFramework.DI
 
                 for (int i = 0; i < parameters.Length; i++)
                 {
-                    args[i] = m_DiResolver.Resolve(parameters[i]);
+                    args[i] = ResolveWithContext(parameters[i], context);
                 }
 
                 object instance = constructor.Invoke(args);
@@ -443,7 +444,7 @@ namespace RPGFramework.DI
                 InjectInfo injectInfo = m_InjectCache[concreteType];
                 if (!ReferenceEquals(injectInfo, InjectInfo.Empty))
                 {
-                    InjectInto(instance, injectInfo);
+                    InjectInto(instance, injectInfo, context);
                 }
 
                 return instance;
@@ -585,7 +586,7 @@ namespace RPGFramework.DI
             return members.Count == 0 ? InjectInfo.Empty : new InjectInfo(members.ToArray());
         }
 
-        private void InjectInto(object instance, InjectInfo injectInfo)
+        private void InjectInto(object instance, InjectInfo injectInfo, IDIContainerNode context)
         {
             if (instance is Object unityObj && unityObj == null)
             {
@@ -599,7 +600,7 @@ namespace RPGFramework.DI
                     switch (entry.Member)
                     {
                         case FieldInfo field:
-                            object fieldValue = m_DiResolver.Resolve(field.FieldType);
+                            object fieldValue = ResolveWithContext(field.FieldType, context);
                             field.SetValue(instance, fieldValue);
                             break;
                         case PropertyInfo property:
@@ -610,7 +611,7 @@ namespace RPGFramework.DI
                                 break;
                             }
 
-                            object propertyValue = m_DiResolver.Resolve(property.PropertyType);
+                            object propertyValue = ResolveWithContext(property.PropertyType, context);
                             property.SetValue(instance, propertyValue);
                             break;
                         case MethodInfo method:
@@ -625,7 +626,7 @@ namespace RPGFramework.DI
 
                                 try
                                 {
-                                    args[i] = m_DiResolver.Resolve(parameters[i].ParameterType);
+                                    args[i] = ResolveWithContext(parameters[i].ParameterType, context);
                                 }
                                 catch when (optional)
                                 {
@@ -646,16 +647,40 @@ namespace RPGFramework.DI
 
     internal sealed class NonLazyBinding : INonLazyBinding
     {
-        private readonly Lazy<object> m_Lazy;
+        private readonly Func<object> m_Invoker;
 
-        internal NonLazyBinding(Lazy<object> lazy)
+        internal NonLazyBinding(Func<object> invoker)
         {
-            m_Lazy = lazy;
+            m_Invoker = invoker;
         }
 
         void INonLazyBinding.AsNonLazy()
         {
-            _ = m_Lazy.Value;
+            _ = m_Invoker();
+        }
+    }
+
+    internal sealed class ContextualLazy
+    {
+        private object m_Value;
+        private bool   m_Created;
+
+        private readonly Func<IDIContainerNode, object> m_Factory;
+
+        internal ContextualLazy(Func<IDIContainerNode, object> factory)
+        {
+            m_Factory = factory;
+        }
+
+        internal object GetValue(IDIContainerNode ctx)
+        {
+            if (!m_Created)
+            {
+                m_Value   = m_Factory(ctx);
+                m_Created = true;
+            }
+
+            return m_Value;
         }
     }
 }
