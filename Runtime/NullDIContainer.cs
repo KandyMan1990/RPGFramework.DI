@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace RPGFramework.DI
 {
@@ -88,5 +90,15 @@ namespace RPGFramework.DI
         void IDIContainer.ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab)
         {
         }
+
+        IDIContainer IDIContainer.GetFallback => null;
+
+        void IDIContainer.SetFallback(IDIContainer fallback)
+        {
+        }
+
+        IReadOnlyDictionary<Type, Func<IDIContainer, object>> IDIContainer.GetBindings => null;
+
+        IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> IDIContainer.GetPrefabBindings => null;
     }
 }
