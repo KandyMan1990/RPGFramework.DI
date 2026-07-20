@@ -1,15 +1,27 @@
 {
   "name": "com.rpgframework.di",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "displayName": "RPG Framework DI",
   "description": "DI system for the RPG Framework",
   "unity": "6000.0",
- "keywords": [
+  "keywords": [
     "RPG Framework",
     "DI"
   ],
   "author": {
     "name": "Elliott Armstrong",
     "url": "https://github.com/KandyMan1990/RPGFramework.DI"
-  }
+  },
+    "samples": [
+	{
+		"displayName": "Basic Example",
+		"description": "Contains an example of using a global installer shared between scenes, as well as scene installers where their dependencies are private to that scene",
+		"path": "Samples~/Basic Example"
+	},
+		{
+		"displayName": "Prefab Example",
+		"description": "Contains an example of using a prefab to spawn new game objects who's references are fulfilled via DI",
+		"path": "Samples~/Prefab Example"
+	}
+  ]
 }
