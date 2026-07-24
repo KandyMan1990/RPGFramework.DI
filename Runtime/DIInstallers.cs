@@ -6,7 +6,11 @@ namespace RPGFramework.DI
     {
         public abstract void InstallBindings(IDIContainer container);
     }
-    
-    public abstract class GlobalInstallerBase : DIInstallerBase { }
+
+    public abstract class GlobalInstallerBase : DIInstallerBase
+    {
+        public virtual void Bootstrap(IDIResolver resolver) { }
+    }
+
     public abstract class SceneInstallerBase : DIInstallerBase { }
 }

@@ -15,16 +15,16 @@ namespace RPGFramework.DI.Editor
         [MenuItem("Assets/Create/RPG Framework/DI/Global Installer", priority = 0)]
         internal static void CreateGlobalInstaller()
         {
-            CreateInstaller("NewGlobalInstaller", "GlobalInstallerBase");
+            CreateInstaller(true, "NewGlobalInstaller", "GlobalInstallerBase");
         }
 
         [MenuItem("Assets/Create/RPG Framework/DI/Scene Installer", priority = 1)]
         internal static void CreateSceneInstaller()
         {
-            CreateInstaller("NewSceneInstaller", "SceneInstallerBase");
+            CreateInstaller(false, "NewSceneInstaller", "SceneInstallerBase");
         }
 
-        private static void CreateInstaller(string defaultName, string baseClass)
+        private static void CreateInstaller(bool isGlobalInstaller, string defaultName, string baseClass)
         {
             string path = EditorUtility.SaveFilePanelInProject("Create Installer", defaultName, "cs", "Choose Location");
 
@@ -34,7 +34,7 @@ namespace RPGFramework.DI.Editor
             }
 
             string className     = Path.GetFileNameWithoutExtension(path);
-            string scriptContent = GenerateScriptCode(className, baseClass);
+            string scriptContent = GenerateScriptCode(isGlobalInstaller, className, baseClass);
 
             File.WriteAllText(path, scriptContent);
 
@@ -44,7 +44,7 @@ namespace RPGFramework.DI.Editor
             AssetDatabase.Refresh();
         }
 
-        private static string GenerateScriptCode(string className, string baseClass)
+        private static string GenerateScriptCode(bool isGlobalInstaller, string className, string baseClass)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -58,7 +58,20 @@ namespace RPGFramework.DI.Editor
             sb.AppendLine("\t\t// container.BindSingleton<IFoo, Foo>();");
             sb.AppendLine("\t\t// container.BindSingletonFromInstance<IFoo, Foo>(m_Foo);");
             sb.AppendLine("\t\t// container.BindTransient<IFoo, Foo>();");
+            sb.AppendLine("\t\t// container.BindPrefab<IEnemy>(m_EnemyPrefab);");
             sb.AppendLine("\t}");
+            if (isGlobalInstaller)
+            {
+                sb.AppendLine();
+                sb.AppendLine("\tpublic override void Bootstrap(IDIResolver resolver)");
+                sb.AppendLine("\t{");
+                sb.AppendLine("\t\t// TODO: init any services that can't be setup via its constructor");
+                sb.AppendLine("\t\t// This method can be deleted if there is nothing to bootstrap");
+                sb.AppendLine();
+                sb.AppendLine("\t\t// IInventoryDatabase inventoryDb = resolver.Resolve<IInventoryDatabase>();");
+                sb.AppendLine("\t\t// inventoryDb.Init();");
+                sb.AppendLine("\t}");
+            }
             sb.AppendLine("}");
 
             return sb.ToString();
