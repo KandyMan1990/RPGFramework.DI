@@ -247,6 +247,9 @@ namespace RPGFramework.DI
             m_Bindings.Clear();
             m_ConstructorCache.Clear();
             m_ConstructorParamsCache.Clear();
+            m_PrefabBindings.Clear();
+            m_InjectCache.Clear();
+            m_Fallback = null;
         }
 
         private static Exception BuildCircularDependencyException(Type repeating)
