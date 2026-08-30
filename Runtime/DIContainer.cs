@@ -356,12 +356,25 @@ namespace RPGFramework.DI
                 return;
             }
 
-            if (instance is IDisposable disposable)
+            if (instance is IDisposable disposable && !IsTracked(disposable))
             {
                 m_Disposables.Add(disposable);
             }
 
             m_Bindings[tInterface] = context => instance;
+        }
+
+        private bool IsTracked(IDisposable disposable)
+        {
+            for (int i = 0; i < m_Disposables.Count; i++)
+            {
+                if (ReferenceEquals(m_Disposables[i], disposable))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy, bool includeConcrete)
