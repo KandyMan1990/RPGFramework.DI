@@ -263,6 +263,7 @@ namespace RPGFramework.DI
 
                 current = current.GetFallback;
             }
+
             throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(ResolveInternal)} No binding exists for type [{type}] in container or its fallbacks");
         }
 
@@ -279,6 +280,7 @@ namespace RPGFramework.DI
 
                 current = current.GetFallback;
             }
+
             throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(InstantiatePrefabInternal)} No binding exists for type [{type}] in container or its fallbacks");
         }
 
@@ -308,7 +310,7 @@ namespace RPGFramework.DI
         {
             if (!HandleExistingBinding(tInterface, bindPolicy, nameof(BindType)))
             {
-                return null;
+                return NonLazyBinding.None;
             }
 
             CacheConstructorAndParams(tConcrete);
@@ -316,7 +318,7 @@ namespace RPGFramework.DI
             if (!singleton)
             {
                 m_Bindings[tInterface] = context => CreateInstance(tConcrete, context);
-                return null;
+                return NonLazyBinding.None;
             }
 
             ContextualLazy lazy = new ContextualLazy(context =>
@@ -641,6 +643,8 @@ namespace RPGFramework.DI
 
     internal sealed class NonLazyBinding : INonLazyBinding
     {
+        internal static readonly INonLazyBinding None = new NonLazyBinding(null);
+
         private readonly Func<object> m_Invoker;
 
         internal NonLazyBinding(Func<object> invoker)
@@ -650,7 +654,7 @@ namespace RPGFramework.DI
 
         void INonLazyBinding.AsNonLazy()
         {
-            _ = m_Invoker();
+            _ = m_Invoker?.Invoke();
         }
     }
 
