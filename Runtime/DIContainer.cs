@@ -34,6 +34,9 @@ namespace RPGFramework.DI
         INonLazyBinding                                                       ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
         INonLazyBinding                                                       ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
         void                                                                  ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+        bool                                                                  Unbind<TInterface>();
+        bool                                                                  Unbind<TInterface>(TInterface instance);
+        bool                                                                  UnbindInterfacesToSelf<TConcrete>() where TConcrete : class;
         IDIContainer                                                          GetFallback { get; }
         void                                                                  SetFallback(IDIContainer fallback);
         IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 GetBindings       { get; }
@@ -188,6 +191,57 @@ namespace RPGFramework.DI
             BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.Overwrite);
         }
 
+        bool IDIContainer.Unbind<TInterface>()
+        {
+            bool unbound = UnbindContract(typeof(TInterface));
+
+            return unbound;
+        }
+
+        bool IDIContainer.Unbind<TInterface>(TInterface instance)
+        {
+            bool unbound = UnbindContract(typeof(TInterface));
+
+            // Ownership of the instance goes back to the caller, so it comes off the disposal list.
+            if (instance is IDisposable disposable)
+            {
+                int index = IndexOfDisposable(disposable);
+
+                if (index >= 0)
+                {
+                    m_Disposables.RemoveAt(index);
+                }
+            }
+
+            return unbound;
+        }
+
+        bool IDIContainer.UnbindInterfacesToSelf<TConcrete>()
+        {
+            // Uses the same contract list the matching bind builds, so the two cannot drift apart. The
+            // concrete type is always included: unbinding something that was never bound is a no-op, so one
+            // method reverses both BindInterfacesToSelfSingleton and BindInterfacesAndConcreteToSelfSingleton.
+            // Anything the container built stays on the disposal list — the container created it, so the
+            // container still owns disposing it.
+            List<Type> contracts = GetSelfBindableContracts(typeof(TConcrete), true);
+
+            bool unbound = false;
+
+            foreach (Type contract in contracts)
+            {
+                unbound |= UnbindContract(contract);
+            }
+
+            return unbound;
+        }
+
+        private bool UnbindContract(Type type)
+        {
+            bool unbound = m_Bindings.Remove(type) | m_PrefabBindings.Remove(type);
+
+            return unbound;
+        }
+
         TInterface IDIResolver.InstantiatePrefab<TInterface>(Transform parent)
         {
             ResolutionContext context = new ResolutionContext(this, this);
@@ -317,6 +371,29 @@ namespace RPGFramework.DI
             }
         }
 
+        /// <summary>
+        /// The lazy behind every singleton binding: builds the instance on first resolve and registers it for
+        /// disposal, since the container created it.
+        /// </summary>
+        /// <remarks>
+        /// One lazy can back several contracts, as it does for an interfaces-to-self bind. The factory still
+        /// runs once, so the instance is registered for disposal once.
+        /// </remarks>
+        private ContextualLazy NewSingletonLazy(Type tConcrete)
+        {
+            return new ContextualLazy(context =>
+                                      {
+                                          object instance = CreateInstance(tConcrete, context);
+
+                                          if (instance is IDisposable disposable)
+                                          {
+                                              m_Disposables.Add(disposable);
+                                          }
+
+                                          return instance;
+                                      });
+        }
+
         private INonLazyBinding BindType(Type tInterface, Type tConcrete, BindPolicy bindPolicy, bool singleton)
         {
             if (!HandleExistingBinding(tInterface, bindPolicy, nameof(BindType)))
@@ -332,17 +409,7 @@ namespace RPGFramework.DI
                 return NonLazyBinding.None;
             }
 
-            ContextualLazy lazy = new ContextualLazy(context =>
-                                                     {
-                                                         object instance = CreateInstance(tConcrete, context);
-
-                                                         if (instance is IDisposable disposable)
-                                                         {
-                                                             m_Disposables.Add(disposable);
-                                                         }
-
-                                                         return instance;
-                                                     });
+            ContextualLazy lazy = NewSingletonLazy(tConcrete);
 
             m_Bindings[tInterface] = context => lazy.GetValue(context);
 
@@ -356,7 +423,7 @@ namespace RPGFramework.DI
                 return;
             }
 
-            if (instance is IDisposable disposable && !IsTracked(disposable))
+            if (instance is IDisposable disposable && IndexOfDisposable(disposable) < 0)
             {
                 m_Disposables.Add(disposable);
             }
@@ -364,24 +431,35 @@ namespace RPGFramework.DI
             m_Bindings[tInterface] = context => instance;
         }
 
-        private bool IsTracked(IDisposable disposable)
+        /// <summary>
+        /// Where an instance sits in the disposal list, or -1 if it is not tracked.
+        /// </summary>
+        /// <remarks>
+        /// Reference-based, deliberately not <c>List.IndexOf</c> or <c>List.Contains</c>: those use
+        /// <see cref="System.Collections.Generic.EqualityComparer{T}.Default"/>, so a type overriding
+        /// <c>Equals</c> could match a different-but-equal object — leaving one instance undisposed when
+        /// binding, or releasing the wrong one when unbinding.
+        /// </remarks>
+        private int IndexOfDisposable(IDisposable disposable)
         {
             for (int i = 0; i < m_Disposables.Count; i++)
             {
                 if (ReferenceEquals(m_Disposables[i], disposable))
                 {
-                    return true;
+                    return i;
                 }
             }
 
-            return false;
+            return -1;
         }
 
-        private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy, bool includeConcrete)
+        /// <summary>
+        /// The contracts an interfaces-to-self bind covers: every interface the type implements that is not a
+        /// framework one, optionally plus the concrete type itself.
+        /// </summary>
+        private static List<Type> GetSelfBindableContracts(Type tConcrete, bool includeConcrete)
         {
-            Type tConcrete = typeof(TConcrete);
-
-            List<Type> typesToBind = new List<Type>();
+            List<Type> contracts = new List<Type>();
 
             foreach (Type contract in tConcrete.GetInterfaces())
             {
@@ -392,13 +470,22 @@ namespace RPGFramework.DI
                     continue;
                 }
 
-                typesToBind.Add(contract);
+                contracts.Add(contract);
             }
 
             if (includeConcrete)
             {
-                typesToBind.Add(tConcrete);
+                contracts.Add(tConcrete);
             }
+
+            return contracts;
+        }
+
+        private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy, bool includeConcrete)
+        {
+            Type tConcrete = typeof(TConcrete);
+
+            List<Type> typesToBind = GetSelfBindableContracts(tConcrete, includeConcrete);
 
             if (typesToBind.Count == 0)
             {
@@ -415,17 +502,7 @@ namespace RPGFramework.DI
 
             CacheConstructorAndParams(tConcrete);
 
-            ContextualLazy lazy = new ContextualLazy(context =>
-                                                     {
-                                                         object instance = CreateInstance(tConcrete, context);
-
-                                                         if (instance is IDisposable disposable)
-                                                         {
-                                                             m_Disposables.Add(disposable);
-                                                         }
-
-                                                         return instance;
-                                                     });
+            ContextualLazy lazy = NewSingletonLazy(tConcrete);
 
             bool bound = false;
 

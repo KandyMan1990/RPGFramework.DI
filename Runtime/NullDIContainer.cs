@@ -96,6 +96,21 @@ namespace RPGFramework.DI
 
         IDIContainer IDIContainer.GetFallback => null;
 
+        bool IDIContainer.Unbind<TInterface>()
+        {
+            return false;
+        }
+
+        bool IDIContainer.Unbind<TInterface>(TInterface instance)
+        {
+            return false;
+        }
+
+        bool IDIContainer.UnbindInterfacesToSelf<TConcrete>()
+        {
+            return false;
+        }
+
         void IDIContainer.SetFallback(IDIContainer fallback)
         {
         }
