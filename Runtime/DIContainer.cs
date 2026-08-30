@@ -263,7 +263,7 @@ namespace RPGFramework.DI
 
                 current = current.GetFallback;
             }
-            throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(ResolveInternal)} No binding exists for type [{type}] in container or its fallbacks");
+            throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(ResolveInternal)} No binding exists for type [{type}] in container or its fallbacks");
         }
 
         private object InstantiatePrefabInternal(Type type, ResolutionContext context, Transform parent)
@@ -279,7 +279,7 @@ namespace RPGFramework.DI
 
                 current = current.GetFallback;
             }
-            throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(InstantiatePrefabInternal)} No binding exists for type [{type}] in container or its fallbacks");
+            throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(InstantiatePrefabInternal)} No binding exists for type [{type}] in container or its fallbacks");
         }
 
         private bool HandleExistingBinding(Type type, BindPolicy bindPolicy, string context)
