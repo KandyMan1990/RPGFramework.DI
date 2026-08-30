@@ -296,6 +296,8 @@ namespace RPGFramework.DI
                 case BindPolicy.SkipIfExists:
                     return false;
                 case BindPolicy.Overwrite:
+                    m_Bindings.Remove(type);
+                    m_PrefabBindings.Remove(type);
                     return true;
                 default:
                     throw new ArgumentOutOfRangeException();
