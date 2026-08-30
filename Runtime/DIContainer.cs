@@ -83,6 +83,14 @@ namespace RPGFramework.DI
 
         void IDIContainer.SetFallback(IDIContainer fallback)
         {
+            for (IDIContainer current = fallback; current != null; current = current.GetFallback)
+            {
+                if (ReferenceEquals(current, this))
+                {
+                    throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(IDIContainer.SetFallback)} The requested fallback leads back to this container, which would make resolution loop forever");
+                }
+            }
+
             m_Fallback = fallback;
         }
 
