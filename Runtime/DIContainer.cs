@@ -380,6 +380,39 @@ namespace RPGFramework.DI
         private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy, bool includeConcrete)
         {
             Type tConcrete = typeof(TConcrete);
+
+            List<Type> typesToBind = new List<Type>();
+
+            foreach (Type contract in tConcrete.GetInterfaces())
+            {
+                string nameSpace = contract.Namespace;
+
+                if (nameSpace == "System" || nameSpace != null && nameSpace.StartsWith("System.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                typesToBind.Add(contract);
+            }
+
+            if (includeConcrete)
+            {
+                typesToBind.Add(tConcrete);
+            }
+
+            if (typesToBind.Count == 0)
+            {
+                throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BindInterfacesToSelfSingletonInternal)} Type [{tConcrete}] implements no bindable interfaces, so this call would bind nothing. Use {nameof(IDIContainer.BindInterfacesAndConcreteToSelfSingleton)} to bind the concrete type itself");
+            }
+
+            if (bindPolicy == BindPolicy.ErrorIfExists)
+            {
+                foreach (Type typeToBind in typesToBind)
+                {
+                    HandleExistingBinding(typeToBind, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal));
+                }
+            }
+
             CacheConstructorAndParams(tConcrete);
 
             ContextualLazy lazy = new ContextualLazy(context =>
@@ -394,29 +427,21 @@ namespace RPGFramework.DI
                                                          return instance;
                                                      });
 
-            List<Type> typesToBind = new List<Type>(tConcrete.GetInterfaces());
-
-            if (includeConcrete)
-            {
-                typesToBind.Add(tConcrete);
-            }
+            bool bound = false;
 
             foreach (Type typeToBind in typesToBind)
             {
-                if (typeToBind == typeof(IDisposable))
-                {
-                    continue;
-                }
-
                 if (!HandleExistingBinding(typeToBind, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal)))
                 {
                     continue;
                 }
 
-                m_Bindings[typeToBind] = ctx => lazy.GetValue(ctx);
+                m_Bindings[typeToBind] = lazy.GetValue;
+
+                bound = true;
             }
 
-            return new NonLazyBinding(() => lazy.GetValue(this));
+            return bound ? new NonLazyBinding(() => lazy.GetValue(this)) : NonLazyBinding.None;
         }
 
         private void BindPrefabInternal<TInterface, TConcrete>(TConcrete prefab, BindPolicy bindPolicy) where TConcrete : Component, TInterface
