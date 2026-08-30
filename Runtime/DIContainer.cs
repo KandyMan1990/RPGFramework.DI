@@ -566,10 +566,20 @@ namespace RPGFramework.DI
                 m_ConstructorParamsCache[concreteType] = parameterTypes;
             }
 
-            if (!m_InjectCache.ContainsKey(concreteType))
+            EnsureInjectInfo(concreteType);
+        }
+
+        private InjectInfo EnsureInjectInfo(Type type)
+        {
+            if (m_InjectCache.TryGetValue(type, out InjectInfo injectInfo))
             {
-                m_InjectCache[concreteType] = BuildInjectInfo(concreteType);
+                return injectInfo;
             }
+
+            injectInfo          = BuildInjectInfo(type);
+            m_InjectCache[type] = injectInfo;
+
+            return injectInfo;
         }
 
         private static bool IsInjectable(MemberInfo member, out bool optional)
@@ -668,11 +678,8 @@ namespace RPGFramework.DI
                 return;
             }
 
-            Type type = instance.GetType();
+            InjectInfo injectInfo = EnsureInjectInfo(instance.GetType());
 
-            CacheConstructorAndParams(type);
-
-            InjectInfo injectInfo = m_InjectCache[type];
             if (ReferenceEquals(injectInfo, InjectInfo.Empty))
             {
                 return;
