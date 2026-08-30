@@ -642,8 +642,12 @@ namespace RPGFramework.DI
                             break;
                     }
                 }
-                catch when (entry.Optional)
+                catch (DIBindingNotFoundException) when (entry.Optional)
                 {
+                    // Only a missing binding makes an optional member optional. Every ResolveInternal call
+                    // above runs before its reflective call, so a missing dependency always arrives here
+                    // unwrapped; anything else — a throwing property setter, a fault in an injected method
+                    // body, a dependency constructor failing — is a real error and must not be swallowed.
                 }
             }
         }
