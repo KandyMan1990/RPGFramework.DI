@@ -572,6 +572,20 @@ namespace RPGFramework.DI
             }
         }
 
+        private static bool IsInjectable(MemberInfo member, out bool optional)
+        {
+            if (member.IsDefined(typeof(InjectAttribute), true))
+            {
+                optional = false;
+
+                return true;
+            }
+
+            optional = member.IsDefined(typeof(InjectOptionalAttribute), true);
+
+            return optional;
+        }
+
         private static InjectInfo BuildInjectInfo(Type concreteType)
         {
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -585,51 +599,57 @@ namespace RPGFramework.DI
                 throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BuildInjectInfo)} Type [{concreteType}] has [Inject] on a constructor.  Constructor injection is implicit and does not support [Inject]");
             }
 
-            List<InjectMember> members = new List<InjectMember>();
+            List<InjectMember>  members = new List<InjectMember>();
+            HashSet<MethodInfo> seen    = new HashSet<MethodInfo>();
 
-            foreach (FieldInfo field in concreteType.GetFields(flags))
+            // Walked a level at a time with DeclaredOnly, because GetFields/GetProperties/GetMethods return
+            // inherited public and protected members but never private members of base types — so [Inject] on
+            // a private base-class field was silently skipped despite InjectAttribute declaring
+            // Inherited = true.
+            for (Type type = concreteType; type != null && type != typeof(object); type = type.BaseType)
             {
-                if (field.IsDefined(typeof(InjectAttribute), true))
-                {
-                    members.Add(new InjectMember(field, false));
-                }
-                else if (field.IsDefined(typeof(InjectOptionalAttribute), true))
-                {
-                    members.Add(new InjectMember(field, true));
-                }
-            }
+                const BindingFlags declared = flags | BindingFlags.DeclaredOnly;
 
-            foreach (PropertyInfo property in concreteType.GetProperties(flags))
-            {
-                if (!property.CanWrite)
+                foreach (FieldInfo field in type.GetFields(declared))
                 {
-                    continue;
+                    // Fields cannot be overridden, so every one found is distinct storage and needs no
+                    // de-duplication.
+                    if (IsInjectable(field, out bool fieldOptional))
+                    {
+                        members.Add(new InjectMember(field, fieldOptional));
+                    }
                 }
 
-                if (property.IsDefined(typeof(InjectAttribute), true))
+                foreach (PropertyInfo property in type.GetProperties(declared))
                 {
-                    members.Add(new InjectMember(property, false));
-                }
-                else if (property.IsDefined(typeof(InjectOptionalAttribute), true))
-                {
-                    members.Add(new InjectMember(property, true));
-                }
-            }
+                    if (!property.CanWrite || !IsInjectable(property, out bool propertyOptional))
+                    {
+                        continue;
+                    }
 
-            foreach (MethodInfo method in concreteType.GetMethods(flags))
-            {
-                if (method.IsStatic)
-                {
-                    continue;
+                    if (!seen.Add(property.GetSetMethod(true).GetBaseDefinition()))
+                    {
+                        continue;
+                    }
+
+                    members.Add(new InjectMember(property, propertyOptional));
                 }
 
-                if (method.IsDefined(typeof(InjectAttribute), true))
+                foreach (MethodInfo method in type.GetMethods(declared))
                 {
-                    members.Add(new InjectMember(method, false));
-                }
-                else if (method.IsDefined(typeof(InjectOptionalAttribute), true))
-                {
-                    members.Add(new InjectMember(method, true));
+                    if (method.IsStatic || !IsInjectable(method, out bool methodOptional))
+                    {
+                        continue;
+                    }
+
+                    // An override and the method it overrides appear at two levels; GetBaseDefinition maps both
+                    // to the same declaration so it is injected once, by the most derived version.
+                    if (!seen.Add(method.GetBaseDefinition()))
+                    {
+                        continue;
+                    }
+
+                    members.Add(new InjectMember(method, methodOptional));
                 }
             }
 
