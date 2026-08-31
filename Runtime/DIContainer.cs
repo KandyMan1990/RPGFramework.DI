@@ -70,9 +70,7 @@ namespace RPGFramework.DI
 
         private IDIContainer m_Fallback;
 
-        [ThreadStatic]
-        private static Stack<Type> m_ConstructionStack;
-
+        private static readonly Stack<Type> m_ConstructionStack = new Stack<Type>(8);
         private static readonly MethodInfo m_CreateTypedSetter = typeof(DIContainer).GetMethod(nameof(CreateTypedSetter), BindingFlags.NonPublic | BindingFlags.Static);
 
         public DIContainer()
@@ -553,8 +551,6 @@ namespace RPGFramework.DI
 
         private object CreateInstance(Type concreteType, IDIContainer context)
         {
-            m_ConstructionStack ??= new Stack<Type>(8);
-
             if (m_ConstructionStack.Contains(concreteType))
             {
                 throw BuildCircularDependencyException(concreteType);
