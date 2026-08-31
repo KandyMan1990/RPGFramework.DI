@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -594,7 +595,7 @@ namespace RPGFramework.DI
 
             if (constructors.Length == 0)
             {
-                throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(FindBestConstructor)} Type [{concreteType}] has no usable public constructors");
+                throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(FindBestConstructor)} Type [{concreteType}] has no usable constructors.");
             }
 
             if (constructors.Length == 1)
@@ -604,6 +605,7 @@ namespace RPGFramework.DI
 
             ConstructorInfo best           = constructors[0];
             int             bestParamCount = best.GetParameters().Length;
+            bool            ambiguous      = false;
 
             for (int i = 1; i < constructors.Length; i++)
             {
@@ -612,10 +614,57 @@ namespace RPGFramework.DI
                 {
                     best           = constructors[i];
                     bestParamCount = count;
+                    ambiguous      = false;
+                }
+                else if (count == bestParamCount)
+                {
+                    ambiguous = true;
                 }
             }
 
+            if (ambiguous)
+            {
+                throw BuildAmbiguousConstructorException(concreteType, constructors, bestParamCount);
+            }
+
             return best;
+        }
+
+        private static Exception BuildAmbiguousConstructorException(Type concreteType, ConstructorInfo[] constructors, int paramCount)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.Append(nameof(DIContainer)).Append("::").Append(nameof(FindBestConstructor));
+            builder.Append(" Type [").Append(concreteType).Append("] has more than one constructor taking ").Append(paramCount);
+            builder.Append(" parameters, so which one to inject is undecidable. Give the type one widest constructor, or mark the ones the container must not use with [Obsolete]. Candidates:");
+
+            for (int i = 0; i < constructors.Length; i++)
+            {
+                Type[] parameterTypes = GetParameterTypes(constructors[i]);
+
+                if (parameterTypes.Length != paramCount)
+                {
+                    continue;
+                }
+
+                builder.Append("\n    ").Append(concreteType.Name).Append('(');
+
+                for (int p = 0; p < parameterTypes.Length; p++)
+                {
+                    if (p > 0)
+                    {
+                        builder.Append(", ");
+                    }
+
+                    builder.Append(parameterTypes[p].Name);
+                }
+
+                builder.Append(')');
+            }
+
+            InvalidOperationException exception = new InvalidOperationException(builder.ToString());
+
+            return exception;
         }
 
         private static Type[] GetParameterTypes(MethodBase method)
