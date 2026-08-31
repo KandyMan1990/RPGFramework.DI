@@ -48,6 +48,11 @@ namespace RPGFramework.DI.Editor
         {
             StringBuilder sb = new StringBuilder();
 
+            if (isGlobalInstaller)
+            {
+                sb.AppendLine("using System.Threading.Tasks;");
+            }
+
             sb.AppendLine("using RPGFramework.DI;");
             sb.AppendLine();
             sb.AppendLine($"public class {className} : {baseClass}");
@@ -63,13 +68,15 @@ namespace RPGFramework.DI.Editor
             if (isGlobalInstaller)
             {
                 sb.AppendLine();
-                sb.AppendLine("\tpublic override void Bootstrap(IDIResolver resolver)");
+                sb.AppendLine("\tpublic override Task Bootstrap(IDIResolver resolver)");
                 sb.AppendLine("\t{");
                 sb.AppendLine("\t\t// TODO: init any services that can't be setup via its constructor");
                 sb.AppendLine("\t\t// This method can be deleted if there is nothing to bootstrap");
                 sb.AppendLine();
                 sb.AppendLine("\t\t// IInventoryDatabase inventoryDb = resolver.Resolve<IInventoryDatabase>();");
-                sb.AppendLine("\t\t// inventoryDb.Init();");
+                sb.AppendLine("\t\t// return inventoryDb.InitAsync();");
+                sb.AppendLine();
+                sb.AppendLine("\t\treturn Task.CompletedTask;");
                 sb.AppendLine("\t}");
             }
             sb.AppendLine("}");
