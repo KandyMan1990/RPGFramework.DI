@@ -33,7 +33,17 @@ namespace RPGFramework.DI.Editor
                 return;
             }
 
-            string className     = Path.GetFileNameWithoutExtension(path);
+            string className = Path.GetFileNameWithoutExtension(path);
+
+            if (!IsValidIdentifier(className))
+            {
+                EditorUtility.DisplayDialog("Invalid Installer Name",
+                                            $"[{className}] cannot be used as a class name.\n\nUse letters, digits and underscores only, starting with a letter or underscore.",
+                                            "OK");
+
+                return;
+            }
+
             string scriptContent = GenerateScriptCode(isGlobalInstaller, className, baseClass);
 
             File.WriteAllText(path, scriptContent);
@@ -42,6 +52,24 @@ namespace RPGFramework.DI.Editor
             EditorPrefs.SetString(DI_CONTAINER_ASSET_PATH, Path.ChangeExtension(path, ".asset"));
 
             AssetDatabase.Refresh();
+        }
+
+        private static bool IsValidIdentifier(string value)
+        {
+            if (string.IsNullOrEmpty(value) || !(char.IsLetter(value[0]) || value[0] == '_'))
+            {
+                return false;
+            }
+
+            for (int i = 1; i < value.Length; i++)
+            {
+                if (!char.IsLetterOrDigit(value[i]) && value[i] != '_')
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static string GenerateScriptCode(bool isGlobalInstaller, string className, string baseClass)
@@ -79,6 +107,7 @@ namespace RPGFramework.DI.Editor
                 sb.AppendLine("\t\treturn Task.CompletedTask;");
                 sb.AppendLine("\t}");
             }
+
             sb.AppendLine("}");
 
             return sb.ToString();
@@ -103,14 +132,35 @@ namespace RPGFramework.DI.Editor
                 return;
             }
 
-            EditorPrefs.DeleteKey(DIInstallerCreator.DI_CONTAINER_CLASS_NAME);
-            EditorPrefs.DeleteKey(DIInstallerCreator.DI_CONTAINER_ASSET_PATH);
-
             Type type = GetTypeByName(className);
+
+            if (type == null)
+            {
+                string scriptPath = Path.ChangeExtension(assetPath, ".cs");
+
+                if (File.Exists(scriptPath))
+                {
+                    return;
+                }
+
+                ClearPendingInstaller();
+
+                Debug.LogWarning($"{nameof(InstallerCompilationHook)}::{nameof(OnAfterAssemblyReload)} No installer asset was created for [{className}]: [{scriptPath}] no longer exists");
+
+                return;
+            }
+
+            ClearPendingInstaller();
 
             ScriptableObject so = ScriptableObject.CreateInstance(type);
             AssetDatabase.CreateAsset(so, assetPath);
             AssetDatabase.SaveAssets();
+        }
+
+        private static void ClearPendingInstaller()
+        {
+            EditorPrefs.DeleteKey(DIInstallerCreator.DI_CONTAINER_CLASS_NAME);
+            EditorPrefs.DeleteKey(DIInstallerCreator.DI_CONTAINER_ASSET_PATH);
         }
 
         private static Type GetTypeByName(string className)
@@ -118,7 +168,8 @@ namespace RPGFramework.DI.Editor
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 Type type = assembly.GetType(className);
-                if (type != null)
+
+                if (type != null && typeof(ScriptableObject).IsAssignableFrom(type))
                 {
                     return type;
                 }
