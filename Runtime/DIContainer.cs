@@ -72,6 +72,8 @@ namespace RPGFramework.DI
         [ThreadStatic]
         private static Stack<Type> m_ConstructionStack;
 
+        private static readonly MethodInfo m_CreateTypedSetter = typeof(DIContainer).GetMethod(nameof(CreateTypedSetter), BindingFlags.NonPublic | BindingFlags.Static);
+
         public DIContainer()
         {
             m_Bindings               = new Dictionary<Type, Func<IDIContainer, object>>();
@@ -616,14 +618,14 @@ namespace RPGFramework.DI
             return best;
         }
 
-        private static Type[] GetConstructorParams(ConstructorInfo constructor)
+        private static Type[] GetParameterTypes(MethodBase method)
         {
-            ParameterInfo[] parameterInfos = constructor.GetParameters();
-            Type[]          parameterTypes = new Type[parameterInfos.Length];
+            ParameterInfo[] parameters     = method.GetParameters();
+            Type[]          parameterTypes = new Type[parameters.Length];
 
-            for (int i = 0; i < parameterInfos.Length; i++)
+            for (int i = 0; i < parameters.Length; i++)
             {
-                parameterTypes[i] = parameterInfos[i].ParameterType;
+                parameterTypes[i] = parameters[i].ParameterType;
             }
 
             return parameterTypes;
@@ -639,7 +641,7 @@ namespace RPGFramework.DI
 
             if (!m_ConstructorParamsCache.TryGetValue(concreteType, out Type[] parameterTypes))
             {
-                parameterTypes                         = GetConstructorParams(constructorInfo);
+                parameterTypes                         = GetParameterTypes(constructorInfo);
                 m_ConstructorParamsCache[concreteType] = parameterTypes;
             }
 
@@ -657,6 +659,39 @@ namespace RPGFramework.DI
             m_InjectCache[type] = injectInfo;
 
             return injectInfo;
+        }
+
+        private static Action<object, object> CreateSetter(PropertyInfo property)
+        {
+            MethodInfo setter = property.GetSetMethod(true);
+
+            if (setter == null || setter.IsStatic)
+            {
+                return null;
+            }
+
+            Type targetType = property.DeclaringType;
+            Type valueType  = property.PropertyType;
+
+            if (targetType == null || targetType.IsValueType || valueType.IsValueType)
+            {
+                return null;
+            }
+
+            MethodInfo factory = m_CreateTypedSetter.MakeGenericMethod(targetType, valueType);
+
+            Action<object, object> boxed = (Action<object, object>)factory.Invoke(null, new object[] { setter });
+
+            return boxed;
+        }
+
+        private static Action<object, object> CreateTypedSetter<TTarget, TValue>(MethodInfo setter)
+            where TTarget : class
+            where TValue : class
+        {
+            Action<TTarget, TValue> typed = (Action<TTarget, TValue>)Delegate.CreateDelegate(typeof(Action<TTarget, TValue>), setter);
+
+            return (target, value) => typed((TTarget)target, (TValue)value);
         }
 
         private static bool IsInjectable(MemberInfo member, out bool optional)
@@ -703,7 +738,7 @@ namespace RPGFramework.DI
                     // de-duplication.
                     if (IsInjectable(field, out bool fieldOptional))
                     {
-                        members.Add(new InjectMember(field, fieldOptional));
+                        members.Add(new InjectMember(field, fieldOptional, new[] { field.FieldType }, null));
                     }
                 }
 
@@ -719,7 +754,7 @@ namespace RPGFramework.DI
                         continue;
                     }
 
-                    members.Add(new InjectMember(property, propertyOptional));
+                    members.Add(new InjectMember(property, propertyOptional, new[] { property.PropertyType }, CreateSetter(property)));
                 }
 
                 foreach (MethodInfo method in type.GetMethods(declared))
@@ -736,7 +771,7 @@ namespace RPGFramework.DI
                         continue;
                     }
 
-                    members.Add(new InjectMember(method, methodOptional));
+                    members.Add(new InjectMember(method, methodOptional, GetParameterTypes(method), null));
                 }
             }
 
@@ -769,18 +804,28 @@ namespace RPGFramework.DI
                     switch (entry.Member)
                     {
                         case FieldInfo field:
-                            field.SetValue(instance, ResolveInternal(field.FieldType, context));
+                            // No delegate path: a field has no setter method to bind one to.
+                            field.SetValue(instance, ResolveInternal(entry.Dependencies[0], context));
                             break;
                         case PropertyInfo property:
-                            property.SetValue(instance, ResolveInternal(property.PropertyType, context));
+                            object value = ResolveInternal(entry.Dependencies[0], context);
+
+                            if (entry.Setter != null)
+                            {
+                                entry.Setter(instance, value);
+                            }
+                            else
+                            {
+                                property.SetValue(instance, value);
+                            }
+
                             break;
                         case MethodInfo method:
-                            ParameterInfo[] parameters = method.GetParameters();
-                            object[]        args       = new object[parameters.Length];
+                            object[] args = new object[entry.Dependencies.Length];
 
-                            for (int i = 0; i < parameters.Length; i++)
+                            for (int i = 0; i < args.Length; i++)
                             {
-                                args[i] = ResolveInternal(parameters[i].ParameterType, context);
+                                args[i] = ResolveInternal(entry.Dependencies[i], context);
                             }
 
                             method.Invoke(instance, args);

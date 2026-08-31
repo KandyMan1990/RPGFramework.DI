@@ -5,13 +5,20 @@ namespace RPGFramework.DI
 {
     internal readonly struct InjectMember
     {
-        public readonly MemberInfo Member;
-        public readonly bool       Optional;
+        public readonly MemberInfo             Member;
+        public readonly bool                   Optional;
+        public readonly Type[]                 Dependencies;
+        public readonly Action<object, object> Setter;
 
-        internal InjectMember(MemberInfo member, bool optional)
+        internal InjectMember(MemberInfo             member,
+                              bool                   optional,
+                              Type[]                 dependencies,
+                              Action<object, object> setter)
         {
-            Member   = member;
-            Optional = optional;
+            Member       = member;
+            Optional     = optional;
+            Dependencies = dependencies;
+            Setter       = setter;
         }
     }
 
