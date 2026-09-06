@@ -4,6 +4,8 @@ using UnityEngine;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using Unity.Scripting.LifecycleManagement;
+using UnityEngine.Assemblies;
 
 namespace RPGFramework.DI.Editor
 {
@@ -114,14 +116,9 @@ namespace RPGFramework.DI.Editor
         }
     }
 
-    [InitializeOnLoad]
-    internal static class InstallerCompilationHook
+    internal static partial class InstallerCompilationHook
     {
-        static InstallerCompilationHook()
-        {
-            AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
-        }
-
+        [OnCodeInitializing]
         private static void OnAfterAssemblyReload()
         {
             string className = EditorPrefs.GetString(DIInstallerCreator.DI_CONTAINER_CLASS_NAME, null);
@@ -165,7 +162,7 @@ namespace RPGFramework.DI.Editor
 
         private static Type GetTypeByName(string className)
         {
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (Assembly assembly in CurrentAssemblies.GetLoadedAssemblies())
             {
                 Type type = assembly.GetType(className);
 
