@@ -9,16 +9,19 @@ namespace RPGFramework.DI
         public readonly bool                   Optional;
         public readonly Type[]                 Dependencies;
         public readonly Action<object, object> Setter;
+        public readonly bool[]                 OptionalDependencies;
 
         internal InjectMember(MemberInfo             member,
                               bool                   optional,
                               Type[]                 dependencies,
-                              Action<object, object> setter)
+                              Action<object, object> setter,
+                              bool[]                 optionalDependencies)
         {
-            Member       = member;
-            Optional     = optional;
-            Dependencies = dependencies;
-            Setter       = setter;
+            Member               = member;
+            Optional             = optional;
+            Dependencies         = dependencies;
+            Setter               = setter;
+            OptionalDependencies = optionalDependencies;
         }
     }
 

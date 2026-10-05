@@ -17,31 +17,32 @@ namespace RPGFramework.DI
 
     public interface IDIContainer : IDisposable
     {
-        void                                                                  BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        INonLazyBinding                                                       BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
-        void                                                                  BindSingletonFromInstance<TInterface>(TInterface instance);
-        INonLazyBinding                                                       BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
-        INonLazyBinding                                                       BindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
-        void                                                                  BindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
-        void                                                                  BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
-        INonLazyBinding                                                       BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
-        void                                                                  BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
-        INonLazyBinding                                                       BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
-        INonLazyBinding                                                       BindInterfacesToAndConcreteSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
-        void                                                                  BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
-        void                                                                  ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        INonLazyBinding                                                       ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
-        void                                                                  ForceBindSingletonFromInstance<TInterface>(TInterface instance);
-        INonLazyBinding                                                       ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
-        INonLazyBinding                                                       ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
-        void                                                                  ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
-        bool                                                                  Unbind<TInterface>();
-        bool                                                                  Unbind<TInterface>(TInterface instance);
-        bool                                                                  UnbindInterfacesToSelf<TConcrete>() where TConcrete : class;
-        IDIContainer                                                          GetFallback { get; }
-        void                                                                  SetFallback(IDIContainer fallback);
-        IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 GetBindings       { get; }
-        IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> GetPrefabBindings { get; }
+        void            BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+        INonLazyBinding BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
+        void            BindSingletonFromInstance<TInterface>(TInterface instance);
+        INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
+        INonLazyBinding BindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
+        void            BindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+        void            BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+        INonLazyBinding BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+        void            BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
+        INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
+        INonLazyBinding BindInterfacesAndConcreteToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
+        void            BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+        void            ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+        INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
+        void            ForceBindSingletonFromInstance<TInterface>(TInterface instance);
+        INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
+        INonLazyBinding ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
+        void            ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+        bool            Unbind<TInterface>();
+        bool            Unbind<TInterface>(TInterface instance);
+        bool            UnbindInterfacesToSelf<TConcrete>() where TConcrete : class;
+        void            SetFallback(IDIContainer fallback);
+
+        internal IDIContainer                                                          GetFallback       { get; }
+        internal IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 GetBindings       { get; }
+        internal IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> GetPrefabBindings { get; }
     }
 
     public interface IDIResolver
@@ -50,8 +51,9 @@ namespace RPGFramework.DI
         object     Resolve(Type                            type);
         TInterface InstantiatePrefab<TInterface>(Transform parent = null);
         void       InjectInto(object                       instance);
-        void       InjectInto(object                       instance, IDIContainer context);
-        T          InstantiatePrefabAndInject<T>(T         prefab,   Transform    parent = null) where T : Component;
+        T          InstantiatePrefabAndInject<T>(T         prefab, Transform parent = null) where T : Component;
+
+        internal void InjectInto(object instance, IDIContainer context);
     }
 
     public interface INonLazyBinding
@@ -70,8 +72,11 @@ namespace RPGFramework.DI
 
         private IDIContainer m_Fallback;
 
+        // Made only when a bound type has an [InjectOptional] constructor parameter, which few do.
+        private Dictionary<Type, bool[]> m_ConstructorOptionalCache;
+
         private static readonly Stack<Type> m_ConstructionStack = new Stack<Type>(8);
-        private static readonly MethodInfo m_CreateTypedSetter = typeof(DIContainer).GetMethod(nameof(CreateTypedSetter), BindingFlags.NonPublic | BindingFlags.Static);
+        private static readonly MethodInfo  m_CreateTypedSetter = typeof(DIContainer).GetMethod(nameof(CreateTypedSetter), BindingFlags.NonPublic | BindingFlags.Static);
 
         public DIContainer()
         {
@@ -162,7 +167,7 @@ namespace RPGFramework.DI
             return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.SkipIfExists, false);
         }
 
-        INonLazyBinding IDIContainer.BindInterfacesToAndConcreteSelfSingletonIfNotRegistered<TConcrete>()
+        INonLazyBinding IDIContainer.BindInterfacesAndConcreteToSelfSingletonIfNotRegistered<TConcrete>()
         {
             return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.SkipIfExists, true);
         }
@@ -302,6 +307,7 @@ namespace RPGFramework.DI
             m_Bindings.Clear();
             m_ConstructorCache.Clear();
             m_ConstructorParamsCache.Clear();
+            m_ConstructorOptionalCache = null;
             m_PrefabBindings.Clear();
             m_InjectCache.Clear();
             m_Fallback = null;
@@ -562,14 +568,13 @@ namespace RPGFramework.DI
             {
                 ConstructorInfo constructor = m_ConstructorCache[concreteType];
                 Type[]          parameters  = m_ConstructorParamsCache[concreteType];
-                object[]        args        = new object[parameters.Length];
 
-                for (int i = 0; i < parameters.Length; i++)
-                {
-                    args[i] = ResolveInternal(parameters[i], context);
-                }
+                bool[] optional = null;
 
-                object instance = constructor.Invoke(args);
+                m_ConstructorOptionalCache?.TryGetValue(concreteType, out optional);
+
+                object[] args     = ResolveArguments(constructor, parameters, optional, context);
+                object   instance = constructor.Invoke(args);
 
                 InjectIntoInternal(instance, context);
 
@@ -585,30 +590,23 @@ namespace RPGFramework.DI
         {
             const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
-            ConstructorInfo[] constructors = concreteType.GetConstructors(flags)
-                                                         .Where(c => !c.IsDefined(typeof(ObsoleteAttribute), inherit: true))
-                                                         .ToArray();
+            ConstructorInfo[] constructors   = concreteType.GetConstructors(flags);
+            ConstructorInfo   best           = null;
+            int               bestParamCount = -1;
+            bool              ambiguous      = false;
 
-            if (constructors.Length == 0)
+            foreach (ConstructorInfo constructor in constructors)
             {
-                throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(FindBestConstructor)} Type [{concreteType}] has no usable constructors.");
-            }
+                if (constructor.IsDefined(typeof(ObsoleteAttribute), inherit: true))
+                {
+                    continue;
+                }
 
-            if (constructors.Length == 1)
-            {
-                return constructors[0];
-            }
+                int count = constructor.GetParameters().Length;
 
-            ConstructorInfo best           = constructors[0];
-            int             bestParamCount = best.GetParameters().Length;
-            bool            ambiguous      = false;
-
-            for (int i = 1; i < constructors.Length; i++)
-            {
-                int count = constructors[i].GetParameters().Length;
                 if (count > bestParamCount)
                 {
-                    best           = constructors[i];
+                    best           = constructor;
                     bestParamCount = count;
                     ambiguous      = false;
                 }
@@ -618,9 +616,16 @@ namespace RPGFramework.DI
                 }
             }
 
+            if (best == null)
+            {
+                throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(FindBestConstructor)} Type [{concreteType}] has no usable constructors.");
+            }
+
             if (ambiguous)
             {
-                throw BuildAmbiguousConstructorException(concreteType, constructors, bestParamCount);
+                ConstructorInfo[] usable = Array.FindAll(constructors, c => !c.IsDefined(typeof(ObsoleteAttribute), inherit: true));
+
+                throw BuildAmbiguousConstructorException(concreteType, usable, bestParamCount);
             }
 
             return best;
@@ -663,6 +668,81 @@ namespace RPGFramework.DI
             return exception;
         }
 
+        /// <summary>
+        /// The arguments for a constructor or an injected method. An <c>[InjectOptional]</c> parameter whose own contract
+        /// is bound nowhere takes the default it declares, or null; a contract that is bound but fails further down still
+        /// throws, as any real fault must.
+        /// </summary>
+        private object[] ResolveArguments(MethodBase method, Type[] parameters, bool[] optional, IDIContainer context)
+        {
+            if (parameters.Length == 0)
+            {
+                return Array.Empty<object>();
+            }
+
+            object[] args = new object[parameters.Length];
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (optional != null && optional[i] && !IsBound(parameters[i], context))
+                {
+                    args[i] = DefaultArgument(method.GetParameters()[i]);
+
+                    continue;
+                }
+
+                args[i] = ResolveInternal(parameters[i], context);
+            }
+
+            return args;
+        }
+
+        private static bool IsBound(Type type, IDIContainer context)
+        {
+            for (IDIContainer current = context; current != null; current = current.GetFallback)
+            {
+                if (current.GetBindings.ContainsKey(type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static object DefaultArgument(ParameterInfo parameter)
+        {
+            if (parameter.HasDefaultValue)
+            {
+                return parameter.DefaultValue;
+            }
+
+            object value = parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null;
+
+            return value;
+        }
+
+        /// <returns>Which parameters are <c>[InjectOptional]</c>, or null when none is, as for most.</returns>
+        private static bool[] GetOptionalParameters(MethodBase method)
+        {
+            ParameterInfo[] parameters = method.GetParameters();
+            bool[]          optional   = null;
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (!parameters[i].IsDefined(typeof(InjectOptionalAttribute), true))
+                {
+                    continue;
+                }
+
+                optional ??= new bool[parameters.Length];
+
+                optional[i] = true;
+            }
+
+            return optional;
+        }
+
         private static Type[] GetParameterTypes(MethodBase method)
         {
             ParameterInfo[] parameters     = method.GetParameters();
@@ -688,6 +768,15 @@ namespace RPGFramework.DI
             {
                 parameterTypes                         = GetParameterTypes(constructorInfo);
                 m_ConstructorParamsCache[concreteType] = parameterTypes;
+
+                bool[] optional = GetOptionalParameters(constructorInfo);
+
+                if (optional != null)
+                {
+                    m_ConstructorOptionalCache ??= new Dictionary<Type, bool[]>();
+
+                    m_ConstructorOptionalCache[concreteType] = optional;
+                }
             }
 
             EnsureInjectInfo(concreteType);
@@ -757,15 +846,6 @@ namespace RPGFramework.DI
         {
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-            ConstructorInfo[] badConstructors = concreteType.GetConstructors(flags)
-                                                            .Where(c => c.IsDefined(typeof(InjectAttribute), inherit: true))
-                                                            .ToArray();
-
-            if (badConstructors.Length > 0)
-            {
-                throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BuildInjectInfo)} Type [{concreteType}] has [Inject] on a constructor.  Constructor injection is implicit and does not support [Inject]");
-            }
-
             List<InjectMember>  members = new List<InjectMember>();
             HashSet<MethodInfo> seen    = new HashSet<MethodInfo>();
 
@@ -783,7 +863,7 @@ namespace RPGFramework.DI
                     // de-duplication.
                     if (IsInjectable(field, out bool fieldOptional))
                     {
-                        members.Add(new InjectMember(field, fieldOptional, new[] { field.FieldType }, null));
+                        members.Add(new InjectMember(field, fieldOptional, new[] { field.FieldType }, null, null));
                     }
                 }
 
@@ -799,7 +879,7 @@ namespace RPGFramework.DI
                         continue;
                     }
 
-                    members.Add(new InjectMember(property, propertyOptional, new[] { property.PropertyType }, CreateSetter(property)));
+                    members.Add(new InjectMember(property, propertyOptional, new[] { property.PropertyType }, CreateSetter(property), null));
                 }
 
                 foreach (MethodInfo method in type.GetMethods(declared))
@@ -816,7 +896,7 @@ namespace RPGFramework.DI
                         continue;
                     }
 
-                    members.Add(new InjectMember(method, methodOptional, GetParameterTypes(method), null));
+                    members.Add(new InjectMember(method, methodOptional, GetParameterTypes(method), null, GetOptionalParameters(method)));
                 }
             }
 
@@ -866,12 +946,7 @@ namespace RPGFramework.DI
 
                             break;
                         case MethodInfo method:
-                            object[] args = new object[entry.Dependencies.Length];
-
-                            for (int i = 0; i < args.Length; i++)
-                            {
-                                args[i] = ResolveInternal(entry.Dependencies[i], context);
-                            }
+                            object[] args = ResolveArguments(method, entry.Dependencies, entry.OptionalDependencies, context);
 
                             method.Invoke(instance, args);
                             break;

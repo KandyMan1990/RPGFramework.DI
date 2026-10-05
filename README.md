@@ -15,7 +15,7 @@ A lightweight, Unity-friendly dependency injection container designed for MonoBe
 - **Interfaces-to-Self**  
   Automatically bind all interfaces implemented by a concrete class.
 - **Optional Injection**  
-  Mark fields, properties, or method parameters as optional.
+  Mark fields, properties, methods, or constructor and method parameters as optional.
 - **Fallback Containers**  
   Support hierarchical containers with fallback lookups.
 - **Non-Lazy Singletons**  
@@ -85,7 +85,9 @@ public class MyGlobalInstaller : GlobalInstallerBase
 ```csharp
 [Inject] – Required dependency injection on fields, properties, or methods.
 
-[InjectOptional] – Optional dependency; container will not throw if missing.
+[InjectOptional] – Optional dependency; container will not throw if missing. On a field, property, or method, the
+                   member is left alone (a method is skipped if any dependency is missing). On a parameter of a
+                   constructor or an injected method, it takes the default it declares, or null.
 ```
 
 ### Scene & Global Installers

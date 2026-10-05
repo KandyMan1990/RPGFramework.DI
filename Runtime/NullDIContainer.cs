@@ -67,7 +67,7 @@ namespace RPGFramework.DI
             return null;
         }
 
-        INonLazyBinding IDIContainer.BindInterfacesToAndConcreteSelfSingletonIfNotRegistered<TConcrete>()
+        INonLazyBinding IDIContainer.BindInterfacesAndConcreteToSelfSingletonIfNotRegistered<TConcrete>()
         {
             return null;
         }

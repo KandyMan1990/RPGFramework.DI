@@ -91,7 +91,7 @@ namespace RPGFramework.DI.Editor
             sb.AppendLine("\t{");
             sb.AppendLine("\t\t// TODO: add your bindings here");
             sb.AppendLine("\t\t// container.BindSingleton<IFoo, Foo>();");
-            sb.AppendLine("\t\t// container.BindSingletonFromInstance<IFoo, Foo>(m_Foo);");
+            sb.AppendLine("\t\t// container.BindSingletonFromInstance<IFoo>(m_Foo);");
             sb.AppendLine("\t\t// container.BindTransient<IFoo, Foo>();");
             sb.AppendLine("\t\t// container.BindPrefab<IEnemy>(m_EnemyPrefab);");
             sb.AppendLine("\t}");

@@ -1,11 +1,11 @@
 ﻿namespace RPGFramework.DI
 {
-    public readonly struct ResolutionContext
+    internal readonly struct ResolutionContext
     {
-        public readonly IDIContainer Container;
-        public readonly IDIResolver  Resolver;
+        internal readonly IDIContainer Container;
+        internal readonly IDIResolver  Resolver;
 
-        public ResolutionContext(IDIContainer container, IDIResolver resolver)
+        internal ResolutionContext(IDIContainer container, IDIResolver resolver)
         {
             Container = container;
             Resolver  = resolver;
