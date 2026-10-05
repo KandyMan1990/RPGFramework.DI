@@ -1,0 +1,17 @@
+{
+    "name": "DiExample.Global",
+    "rootNamespace": "DiExample",
+    "references": [
+        "DiExample.Core",
+        "RPGFramework.DI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

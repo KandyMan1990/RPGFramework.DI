@@ -14,14 +14,9 @@
   },
   "samples": [
     {
-      "displayName": "Basic Example",
-      "description": "Contains an example of using a global installer shared between scenes, as well as scene installers where their dependencies are private to that scene",
-      "path": "Samples~/Basic Example"
-    },
-    {
-      "displayName": "Prefab Example",
-      "description": "Contains an example of using a prefab to spawn new game objects who's references are fulfilled via DI",
-      "path": "Samples~/Prefab Example"
+      "displayName": "DI Example",
+      "description": "A global installer shared between scenes, scene installers whose bindings are private to their scene, and a prefab spawned through the resolver with its dependencies injected. Add its three scenes to the build's scene list, then open EntryPoint and press Play",
+      "path": "Samples~/DI Example"
     }
   ]
 }
