@@ -233,8 +233,10 @@ namespace RPGFramework.DI
 
             bool unbound = false;
 
-            foreach (Type contract in contracts)
+            for (int i = 0; i < contracts.Count; i++)
             {
+                Type contract = contracts[i];
+
                 unbound |= UnbindContract(contract);
             }
 
@@ -468,8 +470,12 @@ namespace RPGFramework.DI
         {
             List<Type> contracts = new List<Type>();
 
-            foreach (Type contract in tConcrete.GetInterfaces())
+            Type[] interfaces = tConcrete.GetInterfaces();
+
+            for (int i = 0; i < interfaces.Length; i++)
             {
+                Type contract = interfaces[i];
+
                 string nameSpace = contract.Namespace;
 
                 if (nameSpace == "System" || nameSpace != null && nameSpace.StartsWith("System.", StringComparison.Ordinal))
@@ -501,8 +507,10 @@ namespace RPGFramework.DI
 
             if (bindPolicy == BindPolicy.ErrorIfExists)
             {
-                foreach (Type typeToBind in typesToBind)
+                for (int i = 0; i < typesToBind.Count; i++)
                 {
+                    Type typeToBind = typesToBind[i];
+
                     HandleExistingBinding(typeToBind, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal));
                 }
             }
@@ -513,8 +521,10 @@ namespace RPGFramework.DI
 
             bool bound = false;
 
-            foreach (Type typeToBind in typesToBind)
+            for (int i = 0; i < typesToBind.Count; i++)
             {
+                Type typeToBind = typesToBind[i];
+
                 if (!HandleExistingBinding(typeToBind, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal)))
                 {
                     continue;
@@ -595,8 +605,10 @@ namespace RPGFramework.DI
             int               bestParamCount = -1;
             bool              ambiguous      = false;
 
-            foreach (ConstructorInfo constructor in constructors)
+            for (int i = 0; i < constructors.Length; i++)
             {
+                ConstructorInfo constructor = constructors[i];
+
                 if (constructor.IsDefined(typeof(ObsoleteAttribute), inherit: true))
                 {
                     continue;
@@ -857,8 +869,12 @@ namespace RPGFramework.DI
             {
                 const BindingFlags declared = flags | BindingFlags.DeclaredOnly;
 
-                foreach (FieldInfo field in type.GetFields(declared))
+                FieldInfo[] fields = type.GetFields(declared);
+
+                for (int i = 0; i < fields.Length; i++)
                 {
+                    FieldInfo field = fields[i];
+
                     // Fields cannot be overridden, so every one found is distinct storage and needs no
                     // de-duplication.
                     if (IsInjectable(field, out bool fieldOptional))
@@ -867,8 +883,12 @@ namespace RPGFramework.DI
                     }
                 }
 
-                foreach (PropertyInfo property in type.GetProperties(declared))
+                PropertyInfo[] properties = type.GetProperties(declared);
+
+                for (int i = 0; i < properties.Length; i++)
                 {
+                    PropertyInfo property = properties[i];
+
                     if (!property.CanWrite || !IsInjectable(property, out bool propertyOptional))
                     {
                         continue;
@@ -882,8 +902,12 @@ namespace RPGFramework.DI
                     members.Add(new InjectMember(property, propertyOptional, new[] { property.PropertyType }, CreateSetter(property), null));
                 }
 
-                foreach (MethodInfo method in type.GetMethods(declared))
+                MethodInfo[] methods = type.GetMethods(declared);
+
+                for (int i = 0; i < methods.Length; i++)
                 {
+                    MethodInfo method = methods[i];
+
                     if (method.IsStatic || !IsInjectable(method, out bool methodOptional))
                     {
                         continue;
@@ -922,8 +946,10 @@ namespace RPGFramework.DI
                 return;
             }
 
-            foreach (InjectMember entry in injectInfo.Members)
+            for (int i = 0; i < injectInfo.Members.Length; i++)
             {
+                InjectMember entry = injectInfo.Members[i];
+
                 try
                 {
                     switch (entry.Member)

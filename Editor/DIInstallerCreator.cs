@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using System.IO;
@@ -162,8 +163,12 @@ namespace RPGFramework.DI.Editor
 
         private static Type GetTypeByName(string className)
         {
-            foreach (Assembly assembly in CurrentAssemblies.GetLoadedAssemblies())
+            IReadOnlyList<Assembly> assemblies = CurrentAssemblies.GetLoadedAssemblies();
+
+            for (int i = 0; i < assemblies.Count; i++)
             {
+                Assembly assembly = assemblies[i];
+
                 Type type = assembly.GetType(className);
 
                 if (type != null && typeof(ScriptableObject).IsAssignableFrom(type))
