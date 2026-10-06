@@ -94,7 +94,7 @@ namespace RPGFramework.DI
         {
         }
 
-        IDIContainer IDIContainer.GetFallback => null;
+        IDIContainer IDIContainer.Fallback => null;
 
         bool IDIContainer.Unbind<TInterface>()
         {
@@ -115,8 +115,8 @@ namespace RPGFramework.DI
         {
         }
 
-        IReadOnlyDictionary<Type, Func<IDIContainer, object>> IDIContainer.GetBindings => m_NoBindings;
+        IReadOnlyDictionary<Type, Func<IDIContainer, object>> IDIContainer.Bindings => m_NoBindings;
 
-        IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> IDIContainer.GetPrefabBindings => m_NoPrefabBindings;
+        IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> IDIContainer.PrefabBindings => m_NoPrefabBindings;
     }
 }

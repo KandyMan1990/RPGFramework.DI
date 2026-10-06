@@ -40,9 +40,9 @@ namespace RPGFramework.DI
         bool            UnbindInterfacesToSelf<TConcrete>() where TConcrete : class;
         void            SetFallback(IDIContainer fallback);
 
-        internal IDIContainer                                                          GetFallback       { get; }
-        internal IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 GetBindings       { get; }
-        internal IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> GetPrefabBindings { get; }
+        internal IDIContainer                                                          Fallback       { get; }
+        internal IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 Bindings       { get; }
+        internal IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> PrefabBindings { get; }
     }
 
     public interface IDIResolver
@@ -88,11 +88,11 @@ namespace RPGFramework.DI
             m_Disposables            = new List<IDisposable>();
         }
 
-        IDIContainer IDIContainer.GetFallback => m_Fallback;
+        IDIContainer IDIContainer.Fallback => m_Fallback;
 
         void IDIContainer.SetFallback(IDIContainer fallback)
         {
-            for (IDIContainer current = fallback; current != null; current = current.GetFallback)
+            for (IDIContainer current = fallback; current != null; current = current.Fallback)
             {
                 if (ReferenceEquals(current, this))
                 {
@@ -103,9 +103,9 @@ namespace RPGFramework.DI
             m_Fallback = fallback;
         }
 
-        IReadOnlyDictionary<Type, Func<IDIContainer, object>> IDIContainer.GetBindings => m_Bindings;
+        IReadOnlyDictionary<Type, Func<IDIContainer, object>> IDIContainer.Bindings => m_Bindings;
 
-        IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> IDIContainer.GetPrefabBindings => m_PrefabBindings;
+        IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> IDIContainer.PrefabBindings => m_PrefabBindings;
 
         void IDIContainer.BindTransient<TInterface, TConcrete>()
         {
@@ -328,12 +328,12 @@ namespace RPGFramework.DI
 
             while (current != null)
             {
-                if (current.GetBindings.TryGetValue(type, out Func<IDIContainer, object> creator))
+                if (current.Bindings.TryGetValue(type, out Func<IDIContainer, object> creator))
                 {
                     return creator(context);
                 }
 
-                current = current.GetFallback;
+                current = current.Fallback;
             }
 
             throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(ResolveInternal)} No binding exists for type [{type}] in container or its fallbacks");
@@ -345,12 +345,12 @@ namespace RPGFramework.DI
 
             while (current != null)
             {
-                if (current.GetPrefabBindings.TryGetValue(type, out Func<Transform, ResolutionContext, object> prefabFactory))
+                if (current.PrefabBindings.TryGetValue(type, out Func<Transform, ResolutionContext, object> prefabFactory))
                 {
                     return prefabFactory(parent, context);
                 }
 
-                current = current.GetFallback;
+                current = current.Fallback;
             }
 
             throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(InstantiatePrefabInternal)} No binding exists for type [{type}] in container or its fallbacks");
@@ -699,9 +699,9 @@ namespace RPGFramework.DI
 
         private static bool IsBound(Type type, IDIContainer context)
         {
-            for (IDIContainer current = context; current != null; current = current.GetFallback)
+            for (IDIContainer current = context; current != null; current = current.Fallback)
             {
-                if (current.GetBindings.ContainsKey(type))
+                if (current.Bindings.ContainsKey(type))
                 {
                     return true;
                 }
