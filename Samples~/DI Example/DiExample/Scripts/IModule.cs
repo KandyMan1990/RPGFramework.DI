@@ -10,12 +10,12 @@ namespace DiExample
 
     public class NullModule : IModule
     {
-        public Task OnEnterAsync()
+        Task IModule.OnEnterAsync()
         {
             return Task.CompletedTask;
         }
 
-        public Task OnExitAsync()
+        Task IModule.OnExitAsync()
         {
             return Task.CompletedTask;
         }

@@ -23,7 +23,7 @@ namespace DiExample.Game
             m_Resolver = resolver;
         }
 
-        public Task OnEnterAsync()
+        Task IModule.OnEnterAsync()
         {
             m_RootUI = Object.FindAnyObjectByType<UIDocument>().rootVisualElement;
 
@@ -38,7 +38,7 @@ namespace DiExample.Game
             return Task.CompletedTask;
         }
 
-        public Task OnExitAsync()
+        Task IModule.OnExitAsync()
         {
             m_SceneButton.UnregisterCallback<ClickEvent>(OnFrontEndButtonClicked);
             m_PrefabButton.UnregisterCallback<ClickEvent>(OnPrefabButtonClicked);

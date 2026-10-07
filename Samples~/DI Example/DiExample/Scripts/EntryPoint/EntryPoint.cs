@@ -10,7 +10,7 @@ namespace DiExample.EntryPoint
 
         private void Start()
         {
-            Core core = Core.Create(m_GlobalInstaller);
+            ICore core = Core.Create(m_GlobalInstaller);
 
             _ = core.LoadModuleAsync<IFrontEndModule>("FrontEnd");
         }

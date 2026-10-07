@@ -18,7 +18,7 @@ namespace DiExample.FrontEnd
             m_ScoreManager = scoreManager;
         }
 
-        public Task OnEnterAsync()
+        Task IModule.OnEnterAsync()
         {
             m_RootUI = Object.FindAnyObjectByType<UIDocument>().rootVisualElement;
 
@@ -30,7 +30,7 @@ namespace DiExample.FrontEnd
             return Task.CompletedTask;
         }
 
-        public Task OnExitAsync()
+        Task IModule.OnExitAsync()
         {
             m_SceneButton.UnregisterCallback<ClickEvent>(OnGameButtonClicked);
 

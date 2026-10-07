@@ -16,7 +16,7 @@ namespace DiExample.Game
             Debug.Log($"ScoreManager: {scoreManager.Score}");
         }
 
-        public void SetPosition(Vector3 position)
+        void IParticle.SetPosition(Vector3 position)
         {
             transform.position = position;
         }

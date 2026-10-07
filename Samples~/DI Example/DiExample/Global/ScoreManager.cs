@@ -8,13 +8,10 @@ namespace DiExample
 
     public class ScoreManager : IScoreManager
     {
-        public int Score { get; private set; }
+        private int m_Score;
 
-        public ScoreManager()
-        {
-            Score = 0;
-        }
+        int IScoreManager.Score => m_Score;
 
-        public void IncreaseScore() => Score++;
+        void IScoreManager.IncreaseScore() => m_Score++;
     }
 }

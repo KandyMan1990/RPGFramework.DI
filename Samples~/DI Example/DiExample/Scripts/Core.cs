@@ -27,7 +27,7 @@ namespace DiExample
             Application.quitting += OnApplicationQuit;
         }
 
-        public static Core Create(GlobalInstallerBase globalInstaller)
+        public static ICore Create(GlobalInstallerBase globalInstaller)
         {
             Core core = new Core();
 
@@ -38,7 +38,7 @@ namespace DiExample
             return core;
         }
 
-        public async Task LoadModuleAsync<T>(string sceneName) where T : IModule
+        async Task ICore.LoadModuleAsync<T>(string sceneName)
         {
             await m_CurrentModule.OnExitAsync();
 
