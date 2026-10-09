@@ -229,11 +229,11 @@ namespace RPGFramework.DI
             // method reverses both BindInterfacesToSelfSingleton and BindInterfacesAndConcreteToSelfSingleton.
             // Anything the container built stays on the disposal list — the container created it, so the
             // container still owns disposing it.
-            List<Type> contracts = GetSelfBindableContracts(typeof(TConcrete), true);
+            Type[] contracts = GetSelfBindableContracts(typeof(TConcrete), true);
 
             bool unbound = false;
 
-            for (int i = 0; i < contracts.Count; i++)
+            for (int i = 0; i < contracts.Length; i++)
             {
                 Type contract = contracts[i];
 
@@ -466,48 +466,61 @@ namespace RPGFramework.DI
         /// The contracts an interfaces-to-self bind covers: every interface the type implements that is not a
         /// framework one, optionally plus the concrete type itself.
         /// </summary>
-        private static List<Type> GetSelfBindableContracts(Type tConcrete, bool includeConcrete)
+        private static Type[] GetSelfBindableContracts(Type tConcrete, bool includeConcrete)
         {
-            List<Type> contracts = new List<Type>();
-
             Type[] interfaces = tConcrete.GetInterfaces();
+            int    count      = includeConcrete ? 1 : 0;
 
             for (int i = 0; i < interfaces.Length; i++)
             {
-                Type contract = interfaces[i];
-
-                string nameSpace = contract.Namespace;
-
-                if (nameSpace == "System" || nameSpace != null && nameSpace.StartsWith("System.", StringComparison.Ordinal))
+                if (IsBindableContract(interfaces[i]))
                 {
-                    continue;
+                    count++;
                 }
+            }
 
-                contracts.Add(contract);
+            Type[] contracts = new Type[count];
+            int    next      = 0;
+
+            for (int i = 0; i < interfaces.Length; i++)
+            {
+                if (IsBindableContract(interfaces[i]))
+                {
+                    contracts[next++] = interfaces[i];
+                }
             }
 
             if (includeConcrete)
             {
-                contracts.Add(tConcrete);
+                contracts[next] = tConcrete;
             }
 
             return contracts;
+        }
+
+        private static bool IsBindableContract(Type contract)
+        {
+            string nameSpace   = contract.Namespace;
+            bool   isFramework = nameSpace == "System" || nameSpace != null && nameSpace.StartsWith("System.", StringComparison.Ordinal);
+            bool   isBindable  = !isFramework;
+
+            return isBindable;
         }
 
         private INonLazyBinding BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy bindPolicy, bool includeConcrete)
         {
             Type tConcrete = typeof(TConcrete);
 
-            List<Type> typesToBind = GetSelfBindableContracts(tConcrete, includeConcrete);
+            Type[] typesToBind = GetSelfBindableContracts(tConcrete, includeConcrete);
 
-            if (typesToBind.Count == 0)
+            if (typesToBind.Length == 0)
             {
                 throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BindInterfacesToSelfSingletonInternal)} Type [{tConcrete}] implements no bindable interfaces, so this call would bind nothing. Use {nameof(IDIContainer.BindInterfacesAndConcreteToSelfSingleton)} to bind the concrete type itself");
             }
 
             if (bindPolicy == BindPolicy.ErrorIfExists)
             {
-                for (int i = 0; i < typesToBind.Count; i++)
+                for (int i = 0; i < typesToBind.Length; i++)
                 {
                     Type typeToBind = typesToBind[i];
 
@@ -521,7 +534,7 @@ namespace RPGFramework.DI
 
             bool bound = false;
 
-            for (int i = 0; i < typesToBind.Count; i++)
+            for (int i = 0; i < typesToBind.Length; i++)
             {
                 Type typeToBind = typesToBind[i];
 
