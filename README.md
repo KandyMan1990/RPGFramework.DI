@@ -179,6 +179,7 @@ container.Dispose();
 next, so nothing is resolved before its bindings exist:
 
 ```csharp
+using System.Threading.Tasks;
 using RPGFramework.DI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -189,7 +190,13 @@ public sealed class Boot : MonoBehaviour
 
     public static IDIContainer Global { get; private set; }
 
-    private async void Start()
+    private void Start()
+    {
+        // Start cannot be awaited, so the work runs as a task, and anything it throws is logged rather than lost.
+        BootAsync().ContinueWith(task => Debug.LogException(task.Exception), TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    private async Task BootAsync()
     {
         DIContainer container = new DIContainer();
         Global = container;

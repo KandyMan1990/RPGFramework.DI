@@ -15,49 +15,178 @@ namespace RPGFramework.DI
         Overwrite
     }
 
+    /// <summary>
+    /// What installers bind into. Disposing it disposes, latest first, every singleton it built and every instance it
+    /// was given.
+    /// </summary>
     public interface IDIContainer : IDisposable
     {
-        void            BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        INonLazyBinding BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
-        void            BindSingletonFromInstance<TInterface>(TInterface instance);
-        INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
-        INonLazyBinding BindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
-        void            BindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
-        void            BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
-        INonLazyBinding BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
-        void            BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
-        INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
-        INonLazyBinding BindInterfacesAndConcreteToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
-        void            BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
-        void            ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
-        INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
-        void            ForceBindSingletonFromInstance<TInterface>(TInterface instance);
-        INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
-        INonLazyBinding ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
-        void            ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
-        bool            Unbind<TInterface>();
-        bool            Unbind<TInterface>(TInterface instance);
-        bool            UnbindInterfacesToSelf<TConcrete>() where TConcrete : class;
-        void            SetFallback(IDIContainer fallback);
+        /// <summary>
+        /// Binds a contract to a class built afresh on every resolve. Throws if the contract is bound already.
+        /// </summary>
+        void BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
 
-        internal IDIContainer                                                          Fallback       { get; }
-        internal IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 Bindings       { get; }
+        /// <summary>
+        /// Binds a contract to one instance of a class, built when first resolved. Throws if the contract is bound
+        /// already.
+        /// </summary>
+        INonLazyBinding BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
+
+        /// <summary>
+        /// Binds a contract to an instance you made, which the container then disposes. Throws if the contract is bound
+        /// already.
+        /// </summary>
+        void BindSingletonFromInstance<TInterface>(TInterface instance);
+
+        /// <summary>
+        /// Binds every interface a class implements to one instance of it. Throws if any is bound already, or if it
+        /// implements none.
+        /// </summary>
+        INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, with the class itself bound too.
+        /// </summary>
+        INonLazyBinding BindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// Binds a contract to a prefab, for <see cref="IDIResolver.InstantiatePrefab{TInterface}" />. Throws if the
+        /// contract is bound already.
+        /// </summary>
+        void BindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+
+        /// <summary>
+        /// As <see cref="BindTransient{TInterface,TConcrete}" />, doing nothing if the contract is bound already.
+        /// </summary>
+        void BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+
+        /// <summary>
+        /// As <see cref="BindSingleton{TInterface,TConcrete}" />, doing nothing if the contract is bound already.
+        /// </summary>
+        INonLazyBinding BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
+
+        /// <summary>
+        /// As <see cref="BindSingletonFromInstance{TInterface}" />, doing nothing if the contract is bound already.
+        /// </summary>
+        void BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
+
+        /// <summary>
+        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, skipping each interface bound already.
+        /// </summary>
+        INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// As <see cref="BindInterfacesAndConcreteToSelfSingleton{TConcrete}" />, skipping each contract bound already.
+        /// </summary>
+        INonLazyBinding BindInterfacesAndConcreteToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// As <see cref="BindPrefab{TInterface,TConcrete}" />, doing nothing if the contract is bound already.
+        /// </summary>
+        void BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+
+        /// <summary>
+        /// As <see cref="BindTransient{TInterface,TConcrete}" />, replacing any binding the contract has. What it
+        /// replaces is not disposed.
+        /// </summary>
+        void ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
+
+        /// <summary>
+        /// As <see cref="BindSingleton{TInterface,TConcrete}" />, replacing any binding the contract has. What it
+        /// replaces is not disposed.
+        /// </summary>
+        INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
+
+        /// <summary>
+        /// As <see cref="BindSingletonFromInstance{TInterface}" />, replacing any binding the contract has. What it
+        /// replaces is not disposed.
+        /// </summary>
+        void ForceBindSingletonFromInstance<TInterface>(TInterface instance);
+
+        /// <summary>
+        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, replacing any bindings they have. What it
+        /// replaces is not disposed.
+        /// </summary>
+        INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// As <see cref="BindInterfacesAndConcreteToSelfSingleton{TConcrete}" />, replacing any bindings they have.
+        /// What it replaces is not disposed.
+        /// </summary>
+        INonLazyBinding ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// As <see cref="BindPrefab{TInterface,TConcrete}" />, replacing any binding the contract has.
+        /// </summary>
+        void ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+
+        /// <summary>
+        /// Removes a contract's binding, returning whether it had one. Anything the container built stays its to
+        /// dispose.
+        /// </summary>
+        bool Unbind<TInterface>();
+
+        /// <summary>
+        /// Removes a contract's binding and hands the instance back, so the container no longer disposes it.
+        /// </summary>
+        bool Unbind<TInterface>(TInterface instance);
+
+        /// <summary>
+        /// Removes the bindings either interfaces-to-self bind made for a class, returning whether there were any.
+        /// </summary>
+        bool UnbindInterfacesToSelf<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// Sets the container asked for whatever this one cannot resolve. Throws if the chain would lead back here.
+        /// </summary>
+        void SetFallback(IDIContainer fallback);
+
+        /// <summary>The container asked for whatever this one cannot resolve, or null.</summary>
+        internal IDIContainer Fallback { get; }
+
+        /// <summary>Each bound contract's factory, given the container the resolution started from.</summary>
+        internal IReadOnlyDictionary<Type, Func<IDIContainer, object>> Bindings { get; }
+
+        /// <summary>Each prefab-bound contract's factory, given the parent and the resolution under way.</summary>
         internal IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> PrefabBindings { get; }
     }
 
+    /// <summary>What code resolves from: this container's bindings, then its fallbacks'. Main thread only.</summary>
     public interface IDIResolver
     {
-        T          Resolve<T>();
-        object     Resolve(Type                            type);
-        TInterface InstantiatePrefab<TInterface>(Transform parent = null);
-        void       InjectInto(object                       instance);
-        T          InstantiatePrefabAndInject<T>(T         prefab, Transform parent = null) where T : Component;
+        /// <summary>
+        /// The contract's instance, built with its dependencies. Throws <see cref="DIBindingNotFoundException" /> when it is
+        /// bound nowhere, and lists the chain when dependencies loop.
+        /// </summary>
+        T Resolve<T>();
 
+        /// <summary>As <see cref="Resolve{T}" />, for a contract known only at run time.</summary>
+        object Resolve(Type type);
+
+        /// <summary>
+        /// Instantiates the prefab bound to the contract under <paramref name="parent" />, injecting the bound component.
+        /// </summary>
+        TInterface InstantiatePrefab<TInterface>(Transform parent = null);
+
+        /// <summary>Fills an existing object's <c>[Inject]</c> members, such as a component Unity built.</summary>
+        void InjectInto(object instance);
+
+        /// <summary>
+        /// Instantiates a prefab nothing is bound to under <paramref name="parent" />, injecting the copy of the component
+        /// passed; the prefab's other components are not injected.
+        /// </summary>
+        T InstantiatePrefabAndInject<T>(T prefab, Transform parent = null) where T : Component;
+
+        /// <summary>
+        /// Fills an object's <c>[Inject]</c> members, resolving from <paramref name="context" /> and its fallbacks.
+        /// </summary>
         internal void InjectInto(object instance, IDIContainer context);
     }
 
+    /// <summary>A singleton binding just made, which can be built at once rather than when first resolved.</summary>
     public interface INonLazyBinding
     {
+        /// <summary>Builds the singleton now.</summary>
         void AsNonLazy();
     }
 
