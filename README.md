@@ -173,6 +173,75 @@ container.Dispose();
 
 ---
 
+## Using it on its own
+
+**Build one global container for the game's life**, from a global installer, in a first scene that then loads the
+next, so nothing is resolved before its bindings exist:
+
+```csharp
+using RPGFramework.DI;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public sealed class Boot : MonoBehaviour
+{
+    [SerializeField] private GlobalInstallerBase m_GlobalInstaller;
+
+    public static IDIContainer Global { get; private set; }
+
+    private async void Start()
+    {
+        DIContainer container = new DIContainer();
+        Global = container;
+
+        m_GlobalInstaller.InstallBindings(container);
+        await m_GlobalInstaller.Bootstrap(container);
+
+        await SceneManager.LoadSceneAsync("Title");
+    }
+}
+```
+
+**Give each scene a container of its own** once it has loaded, from the installer its `SceneInstallerMonoBehaviour`
+holds, falling back to the global one:
+
+```csharp
+DIContainer  container = new DIContainer();
+IDIContainer scene     = container;
+
+Object.FindAnyObjectByType<SceneInstallerMonoBehaviour>().SceneInstaller.InstallBindings(scene);
+scene.SetFallback(Boot.Global);
+```
+
+Some suggestions for fitting it in:
+
+- **Dispose a scene's container when the scene goes**, so what it built goes with it, and the global one when the game
+  quits.
+- **Resolve at the edges** — the code that starts a scene, or a component's `[Inject]` method — and pass what was
+  resolved on, rather than handing the resolver around to be asked later.
+- **Inject what Unity made**: a component already in the scene was built by Unity, not the container, so call
+  `InjectInto` on it once the scene's container exists.
+- **Bind a default, then force a platform's own** over it, or bind it only `IfNotRegistered` from a shared installer.
+- **Make a dependency optional** with `[InjectOptional]` where a feature may simply not be there, so its absence is not
+  an error.
+
+---
+
+## In the RPG Framework
+
+- **Core builds both containers.** The game's entry point calls `CoreModuleFactory.Create` with its global installer,
+  which binds Core's own services, then the game's, and awaits the installer's `Bootstrap` before the first module, so
+  a manifest or a settings file fails there rather than at a first lookup.
+- **Each module change builds a new scene container**: Core loads the module's scene, disposes the last scene's
+  container with what it built, makes a new one from the scene's `SceneInstallerMonoBehaviour` with the global
+  container as its fallback, and resolves the module from it. Each module is bound in its own scene's installer, so it
+  is built fresh every time it is entered.
+- **`IDIResolver` in the global container is the current scene's**, so something global that resolves later finds the
+  scene's bindings as well as its own.
+- **Both are disposed when the game quits.**
+
+---
+
 ## Sample
 
 **DI Example**: a global installer shared between scenes, scene installers whose bindings stay in their scene, and a
