@@ -43,7 +43,9 @@ IDIContainer container   = diContainer;
 IDIResolver  resolver    = diContainer;
 ```
 
-`NullDIContainer` binds and resolves nothing, for holding a place before a real container exists.
+`NullDIContainer` is an `IDIContainer` that binds nothing, so a container falling back to it finds nothing there: it
+holds a place before a real container exists. It is not a resolver, and its singleton binds return null, so there is
+nothing to call `AsNonLazy` on.
 
 ### Binding
 
@@ -246,6 +248,36 @@ Some suggestions for fitting it in:
 - **`IDIResolver` in the global container is the current scene's**, so something global that resolves later finds the
   scene's bindings as well as its own.
 - **Both are disposed when the game quits.**
+
+---
+
+## Tests
+
+The tests are in `Tests/Editor`, on Unity's Test Framework. They compile only in a project that lists the package as
+testable: add it to `testables` in `Packages/manifest.json`,
+
+```json
+"testables": [
+  "com.rpgframework.di"
+]
+```
+
+then open **Window › General › Test Runner** and run the **EditMode** tests.
+
+---
+
+## In this version
+
+**4.0.3** adds the tests: singletons and transients, a fallback container, a circular dependency, which constructor is
+chosen and which refused, and optional parameters and members. The API and its behaviour are unchanged.
+
+---
+
+## Not in this version
+
+- **Thread safety**: bind, resolve and instantiate on the main thread only.
+- **Reflection at build time**: types are reflected over at run time, once per container; doing it ahead of time is
+  not built.
 
 ---
 
