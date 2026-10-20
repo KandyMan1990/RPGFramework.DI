@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace RPGFramework.DI
 {
-    public class NullDIContainer : IDIContainer
+    public sealed class NullDIContainer : IDIContainer
     {
         private static readonly IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 m_NoBindings       = new Dictionary<Type, Func<IDIContainer, object>>();
         private static readonly IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> m_NoPrefabBindings = new Dictionary<Type, Func<Transform, ResolutionContext, object>>();

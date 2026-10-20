@@ -6,7 +6,7 @@ namespace DiExample
         void IncreaseScore();
     }
 
-    public class ScoreManager : IScoreManager
+    public sealed class ScoreManager : IScoreManager
     {
         private int m_Score;
 

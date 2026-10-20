@@ -10,7 +10,7 @@ namespace DiExample
         Task LoadModuleAsync<T>(string sceneName) where T : IModule;
     }
 
-    public class Core : ICore
+    public sealed class Core : ICore
     {
         private readonly IDIContainer m_GlobalContainer;
 

@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 
 namespace DiExample.Game
 {
-    public class GameModule : IGameModule
+    public sealed class GameModule : IGameModule
     {
         private readonly ICore m_Core;
         private readonly IScoreManager m_ScoreManager;

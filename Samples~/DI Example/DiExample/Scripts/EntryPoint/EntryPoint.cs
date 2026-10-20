@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace DiExample.EntryPoint
 {
-    public class EntryPoint : MonoBehaviour
+    public sealed class EntryPoint : MonoBehaviour
     {
         [SerializeField]
         private GlobalInstallerBase m_GlobalInstaller;

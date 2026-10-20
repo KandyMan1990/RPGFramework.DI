@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace DiExample.FrontEnd
 {
-    public class FrontEndModule : IFrontEndModule
+    public sealed class FrontEndModule : IFrontEndModule
     {
         private readonly ICore m_Core;
         private readonly IScoreManager m_ScoreManager;

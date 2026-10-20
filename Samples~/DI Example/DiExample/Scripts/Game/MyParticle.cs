@@ -8,7 +8,7 @@ namespace DiExample.Game
         void SetPosition(Vector3 position);
     }
 
-    public class MyParticle : MonoBehaviour, IParticle
+    public sealed class MyParticle : MonoBehaviour, IParticle
     {
         [Inject]
         public void Construct(IScoreManager scoreManager)

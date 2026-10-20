@@ -2,7 +2,7 @@
 
 namespace RPGFramework.DI
 {
-    public class SceneInstallerMonoBehaviour : MonoBehaviour
+    public sealed class SceneInstallerMonoBehaviour : MonoBehaviour
     {
         [SerializeField]
         private SceneInstallerBase m_SceneInstaller;

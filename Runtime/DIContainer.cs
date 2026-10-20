@@ -190,7 +190,7 @@ namespace RPGFramework.DI
         void AsNonLazy();
     }
 
-    public class DIContainer : IDIContainer, IDIResolver
+    public sealed class DIContainer : IDIContainer, IDIResolver
     {
         private readonly Dictionary<Type, Func<IDIContainer, object>>                 m_Bindings;
         private readonly Dictionary<Type, Func<Transform, ResolutionContext, object>> m_PrefabBindings;

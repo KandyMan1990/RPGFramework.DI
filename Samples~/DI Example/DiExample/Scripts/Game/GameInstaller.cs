@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace DiExample.Game
 {
-    public class GameInstaller : SceneInstallerBase
+    public sealed class GameInstaller : SceneInstallerBase
     {
         [SerializeField]
         private MyParticle m_ParticlePrefab;

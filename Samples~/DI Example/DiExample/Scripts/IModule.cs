@@ -8,7 +8,7 @@ namespace DiExample
         Task OnExitAsync();
     }
 
-    public class NullModule : IModule
+    public sealed class NullModule : IModule
     {
         Task IModule.OnEnterAsync()
         {
