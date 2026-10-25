@@ -243,8 +243,9 @@ Some suggestions for fitting it in:
   a manifest or a settings file fails there rather than at a first lookup.
 - **Each module change builds a new scene container**: Core loads the module's scene, disposes the last scene's
   container with what it built, makes a new one from the scene's `SceneInstallerMonoBehaviour` with the global
-  container as its fallback, and resolves the module from it. Each module is bound in its own scene's installer, so it
-  is built fresh every time it is entered.
+  container as its fallback, and resolves the module from it. The game's scene installer binds the game's types, and
+  each module then binds its own into the same container from a component in its scene, so a module is built fresh
+  every time it is entered.
 - **`IDIResolver` in the global container is the current scene's**, so something global that resolves later finds the
   scene's bindings as well as its own.
 - **Both are disposed when the game quits.**
