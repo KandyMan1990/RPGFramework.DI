@@ -266,21 +266,6 @@ then open **Window › General › Test Runner** and run the **EditMode** tests.
 
 ---
 
-## In this version
-
-**4.0.3** adds the tests: singletons and transients, a fallback container, a circular dependency, which constructor is
-chosen and which refused, and optional parameters and members. The API and its behaviour are unchanged.
-
----
-
-## Not in this version
-
-- **Thread safety**: bind, resolve and instantiate on the main thread only.
-- **Reflection at build time**: types are reflected over at run time, once per container; doing it ahead of time is
-  not built.
-
----
-
 ## Sample
 
 **DI Example**: a global installer shared between scenes, scene installers whose bindings stay in their scene, and a
