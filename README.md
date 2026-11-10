@@ -11,7 +11,7 @@ Requires Unity 6000.6 or newer, and depends on nothing else.
 ## Features
 
 - **Transient and singleton bindings**, from a type or from an instance you already have.
-- **Interfaces to self**: bind every interface a class implements, optionally the class itself too.
+- **Interfaces to self**: bind every interface a class implements but .NET's own, optionally the class itself too.
 - **Conditional and forced bindings**: bind only if nothing is bound yet, or replace what is.
 - **Prefabs**: bind a prefab to an interface and instantiate it with its dependencies injected.
 - **Optional injection** on fields, properties and methods, and on constructor and method parameters.
@@ -56,7 +56,7 @@ throws as already bound, and a global singleton's resolver stays the global cont
 container.BindTransient<IEnemy, Enemy>();                                 // a new instance every resolve
 container.BindSingleton<IPlayer, Player>();                               // one instance, made when first resolved
 container.BindSingletonFromInstance<IScoreManager>(scoreManager);         // an instance you already have
-container.BindInterfacesToSelfSingleton<AudioService>();                  // every interface AudioService implements
+container.BindInterfacesToSelfSingleton<AudioService>();                  // every interface it implements but .NET's own
 container.BindInterfacesAndConcreteToSelfSingleton<AudioService>();       // ...and AudioService itself
 container.BindSingleton<ISaveService, SaveService>().AsNonLazy();         // made by BuildNonLazy, not when first resolved
 ```
@@ -129,7 +129,8 @@ IWeapon sword = resolver.InstantiatePrefab<IWeapon>(parentTransform);
 
 `InstantiatePrefab` instantiates the bound prefab under the parent and injects the bound component. For a prefab
 nothing is bound to, `InstantiatePrefabAndInject(prefab, parent)` does the same with the component you pass. **Only that
-component is injected**, not the prefab's other components.
+component is injected**, not the prefab's other components. Injection follows the instantiation, so on an active prefab
+`Awake` and `OnEnable` run before it: use what was injected from `Start` or the `[Inject]` method.
 
 ### Fallback containers
 
@@ -254,13 +255,12 @@ Some suggestions for fitting it in:
 ## In the RPG Framework
 
 - **Core builds both containers.** The game's entry point calls `CoreModuleFactory.Create` with its global installer,
-  which binds Core's own services, then the game's, and awaits the installer's `Bootstrap` before the first module, so
-  a manifest or a settings file fails there rather than at a first lookup.
-- **Each module change builds a new scene container**: Core loads the module's scene, disposes the last scene's
-  container with what it built, makes a new one from the scene's `SceneInstallerMonoBehaviour` with the global
-  container as its fallback, and resolves the module from it. The game's scene installer binds the game's types, and
-  each module then binds its own into the same container from a component in its scene, so a module is built fresh
-  every time it is entered.
+  which binds the game's services, then Core's own where the game bound none, and awaits the installer's `Bootstrap`
+  before the first module, so a manifest or a settings file fails there rather than at a first lookup.
+- **Each module gets a scene container of its own**: Core loads the module's scene, makes a container from the scene's
+  `SceneInstallerMonoBehaviour` with the global container as its fallback, and resolves the module from it. The game's
+  scene installer binds the game's types, and each module then binds its own into the same container from a component
+  in its scene, so a module is built fresh every time it is entered, and what it built goes with it.
 - **A module's `IDIResolver` is its own scene's container**, as a module is bound there, so what it resolves later finds
   the scene's bindings as well as the global ones.
 - **Both are disposed when the game quits.**
