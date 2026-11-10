@@ -6,9 +6,9 @@ namespace RPGFramework.DI
     /// Thrown when no binding exists for a contract in a container or any of its fallbacks.
     /// </summary>
     /// <remarks>
-    /// This is deliberately distinct from every other resolution failure. <c>[InjectOptional]</c> suppresses
-    /// only this exception, so a missing binding stays optional while a genuine fault inside a constructor,
-    /// property setter or injected method still surfaces.
+    /// Distinct from every other resolution failure, so a caller can tell a missing binding from a fault inside a
+    /// constructor, property setter or injected method. <c>[InjectOptional]</c> never suppresses it: an optional
+    /// member or parameter is skipped only when its own contract is bound nowhere, checked before anything resolves.
     /// </remarks>
     public sealed class DIBindingNotFoundException : Exception
     {

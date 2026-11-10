@@ -864,6 +864,24 @@ namespace RPGFramework.DI
             return false;
         }
 
+        /// <summary>
+        /// Whether every contract an optional member needs is bound, not counting a parameter that is itself optional.
+        /// </summary>
+        private static bool AreDependenciesBound(InjectMember entry, IDIContainer context)
+        {
+            for (int i = 0; i < entry.Dependencies.Length; i++)
+            {
+                bool optionalParameter = entry.OptionalDependencies != null && entry.OptionalDependencies[i];
+
+                if (!optionalParameter && !IsBound(entry.Dependencies[i], context))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static object DefaultArgument(ParameterInfo parameter)
         {
             if (parameter.HasDefaultValue)
@@ -1092,40 +1110,36 @@ namespace RPGFramework.DI
             {
                 InjectMember entry = injectInfo.Members[i];
 
-                try
+                // Decided before anything resolves, so a contract that is bound but fails further down still throws.
+                if (entry.Optional && !AreDependenciesBound(entry, context))
                 {
-                    switch (entry.Member)
-                    {
-                        case FieldInfo field:
-                            // No delegate path: a field has no setter method to bind one to.
-                            field.SetValue(instance, ResolveInternal(entry.Dependencies[0], context));
-                            break;
-                        case PropertyInfo property:
-                            object value = ResolveInternal(entry.Dependencies[0], context);
-
-                            if (entry.Setter != null)
-                            {
-                                entry.Setter(instance, value);
-                            }
-                            else
-                            {
-                                property.SetValue(instance, value);
-                            }
-
-                            break;
-                        case MethodInfo method:
-                            object[] args = ResolveArguments(method, entry.Dependencies, entry.OptionalDependencies, context);
-
-                            method.Invoke(instance, args);
-                            break;
-                    }
+                    continue;
                 }
-                catch (DIBindingNotFoundException) when (entry.Optional)
+
+                switch (entry.Member)
                 {
-                    // Only a missing binding makes an optional member optional. Every ResolveInternal call
-                    // above runs before its reflective call, so a missing dependency always arrives here
-                    // unwrapped; anything else — a throwing property setter, a fault in an injected method
-                    // body, a dependency constructor failing — is a real error and must not be swallowed.
+                    case FieldInfo field:
+                        // No delegate path: a field has no setter method to bind one to.
+                        field.SetValue(instance, ResolveInternal(entry.Dependencies[0], context));
+                        break;
+                    case PropertyInfo property:
+                        object value = ResolveInternal(entry.Dependencies[0], context);
+
+                        if (entry.Setter != null)
+                        {
+                            entry.Setter(instance, value);
+                        }
+                        else
+                        {
+                            property.SetValue(instance, value);
+                        }
+
+                        break;
+                    case MethodInfo method:
+                        object[] args = ResolveArguments(method, entry.Dependencies, entry.OptionalDependencies, context);
+
+                        method.Invoke(instance, args);
+                        break;
                 }
             }
         }

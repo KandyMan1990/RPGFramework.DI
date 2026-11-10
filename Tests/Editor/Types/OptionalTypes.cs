@@ -100,4 +100,39 @@ namespace RPGFramework.DI.Tests.Types
         [Inject]
         public IMissing Missing;
     }
+
+    internal sealed class OptionalBrokenField
+    {
+        [InjectOptional]
+        public IBoundButBroken Broken;
+    }
+
+    internal sealed class OptionalBrokenProperty
+    {
+        [InjectOptional]
+        public IBoundButBroken Broken { get; set; }
+    }
+
+    internal sealed class OptionalBrokenMethod
+    {
+        [InjectOptional]
+        public void Construct(IBoundButBroken broken)
+        {
+        }
+    }
+
+    internal sealed class OptionalMethodWithOptionalParameter
+    {
+        internal IA       A;
+        internal IMissing Missing;
+        internal bool     Ran;
+
+        [InjectOptional]
+        public void Construct(IA a, [InjectOptional] IMissing missing)
+        {
+            A       = a;
+            Missing = missing;
+            Ran     = true;
+        }
+    }
 }
