@@ -35,6 +35,8 @@ namespace DiExample
 
             globalInstaller.InstallBindings(core.m_GlobalContainer);
 
+            core.m_GlobalContainer.BuildNonLazy();
+
             return core;
         }
 
@@ -76,6 +78,8 @@ namespace DiExample
             m_GlobalContainer.BindSingletonFromInstance<IDIResolver>(m_SceneResolver);
 
             m_SceneContainer.SetFallback(m_GlobalContainer);
+
+            m_SceneContainer.BuildNonLazy();
 
             m_CurrentModule = m_SceneResolver.Resolve<T>();
 

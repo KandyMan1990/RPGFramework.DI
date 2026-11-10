@@ -140,6 +140,12 @@ namespace RPGFramework.DI
         /// </summary>
         void SetFallback(IDIContainer fallback);
 
+        /// <summary>
+        /// Builds the singletons marked <see cref="INonLazyBinding.AsNonLazy" />, in the order they were marked. Call it
+        /// once every installer has run and the fallback is set. Building again builds nothing twice.
+        /// </summary>
+        void BuildNonLazy();
+
         /// <summary>The container asked for whatever this one cannot resolve, or null.</summary>
         internal IDIContainer Fallback { get; }
 
@@ -182,10 +188,13 @@ namespace RPGFramework.DI
         internal void InjectInto(object instance, IDIContainer context);
     }
 
-    /// <summary>A singleton binding just made, which can be built at once rather than when first resolved.</summary>
+    /// <summary>
+    /// A singleton binding just made, which can be built by <see cref="IDIContainer.BuildNonLazy" /> rather than when first
+    /// resolved.
+    /// </summary>
     public interface INonLazyBinding
     {
-        /// <summary>Builds the singleton now.</summary>
+        /// <summary>Has <see cref="IDIContainer.BuildNonLazy" /> build the singleton.</summary>
         void AsNonLazy();
     }
 
@@ -197,6 +206,7 @@ namespace RPGFramework.DI
         private readonly Dictionary<Type, Type[]>                                     m_ConstructorParamsCache;
         private readonly Dictionary<Type, InjectInfo>                                 m_InjectCache;
         private readonly List<IDisposable>                                            m_Disposables;
+        private readonly List<SingletonLazy>                                          m_NonLazy;
 
         private IDIContainer m_Fallback;
 
@@ -214,6 +224,7 @@ namespace RPGFramework.DI
             m_ConstructorParamsCache = new Dictionary<Type, Type[]>();
             m_InjectCache            = new Dictionary<Type, InjectInfo>();
             m_Disposables            = new List<IDisposable>();
+            m_NonLazy                = new List<SingletonLazy>();
         }
 
         IDIContainer IDIContainer.Fallback => m_Fallback;
@@ -229,6 +240,19 @@ namespace RPGFramework.DI
             }
 
             m_Fallback = fallback;
+        }
+
+        void IDIContainer.BuildNonLazy()
+        {
+            // Emptied first, so what these resolve as they build is not taken for a resolve made too early.
+            SingletonLazy[] pending = m_NonLazy.ToArray();
+
+            m_NonLazy.Clear();
+
+            for (int i = 0; i < pending.Length; i++)
+            {
+                pending[i].GetValue();
+            }
         }
 
         IReadOnlyDictionary<Type, Func<IDIContainer, object>> IDIContainer.Bindings => m_Bindings;
@@ -434,6 +458,7 @@ namespace RPGFramework.DI
             }
 
             m_Disposables.Clear();
+            m_NonLazy.Clear();
             m_Bindings.Clear();
             m_ConstructorCache.Clear();
             m_ConstructorParamsCache.Clear();
@@ -475,6 +500,13 @@ namespace RPGFramework.DI
 
         private object ResolveInternal(Type type, IDIContainer context, MemberInfo neededBy = null)
         {
+#if UNITY_EDITOR
+            if (m_NonLazy.Count > 0)
+            {
+                Debug.LogWarning($"{nameof(DIContainer)}::{nameof(ResolveInternal)} Resolving [{type}] from a container with non-lazy singletons still to build. Call {nameof(IDIContainer.BuildNonLazy)} once its installers have run and its fallback is set");
+            }
+#endif
+
             IDIContainer current = context;
 
             while (current != null)
@@ -573,7 +605,7 @@ namespace RPGFramework.DI
 
             m_Bindings[tInterface] = _ => lazy.GetValue();
 
-            return new NonLazyBinding(lazy.GetValue);
+            return new NonLazyBinding(lazy, m_NonLazy);
         }
 
         private void BindInstance(Type tInterface, object instance, BindPolicy bindPolicy)
@@ -699,7 +731,7 @@ namespace RPGFramework.DI
                 bound = true;
             }
 
-            return bound ? new NonLazyBinding(lazy.GetValue) : NonLazyBinding.None;
+            return bound ? new NonLazyBinding(lazy, m_NonLazy) : NonLazyBinding.None;
         }
 
         private void BindPrefabInternal<TInterface, TConcrete>(TConcrete prefab, BindPolicy bindPolicy) where TConcrete : Component, TInterface
@@ -1169,18 +1201,20 @@ namespace RPGFramework.DI
 
     internal sealed class NonLazyBinding : INonLazyBinding
     {
-        internal static readonly INonLazyBinding None = new NonLazyBinding(null);
+        internal static readonly INonLazyBinding None = new NonLazyBinding(null, null);
 
-        private readonly Func<object> m_Invoker;
+        private readonly SingletonLazy       m_Lazy;
+        private readonly List<SingletonLazy> m_Pending;
 
-        internal NonLazyBinding(Func<object> invoker)
+        internal NonLazyBinding(SingletonLazy lazy, List<SingletonLazy> pending)
         {
-            m_Invoker = invoker;
+            m_Lazy    = lazy;
+            m_Pending = pending;
         }
 
         void INonLazyBinding.AsNonLazy()
         {
-            _ = m_Invoker?.Invoke();
+            m_Pending?.Add(m_Lazy);
         }
     }
 

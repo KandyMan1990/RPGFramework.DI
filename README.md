@@ -16,7 +16,7 @@ Requires Unity 6000.6 or newer, and depends on nothing else.
 - **Prefabs**: bind a prefab to an interface and instantiate it with its dependencies injected.
 - **Optional injection** on fields, properties and methods, and on constructor and method parameters.
 - **Fallback containers**: a scene's container falls back to a global one, so a scene sees both.
-- **Non-lazy singletons**, built as soon as they are bound rather than when first resolved.
+- **Non-lazy singletons**, built together once a container is ready rather than when first resolved.
 - **Installers** as ScriptableObjects, with editor menus that write the script and make the asset.
 
 ---
@@ -54,8 +54,12 @@ container.BindSingleton<IPlayer, Player>();                               // one
 container.BindSingletonFromInstance<IScoreManager>(scoreManager);         // an instance you already have
 container.BindInterfacesToSelfSingleton<AudioService>();                  // every interface AudioService implements
 container.BindInterfacesAndConcreteToSelfSingleton<AudioService>();       // ...and AudioService itself
-container.BindSingleton<ISaveService, SaveService>().AsNonLazy();         // made now, not when first resolved
+container.BindSingleton<ISaveService, SaveService>().AsNonLazy();         // made by BuildNonLazy, not when first resolved
 ```
+
+`AsNonLazy` only marks a singleton; `container.BuildNonLazy()` builds those marked, in order. Call it once every
+installer has run and the fallback is set, so a singleton can depend on what is bound after it or in the fallback. In
+the editor, resolving from a container that still has one to build logs a warning.
 
 Binding a type that is already bound throws. Two other forms of every binding change that:
 
@@ -209,6 +213,7 @@ public sealed class Boot : MonoBehaviour
         Global = container;
 
         m_GlobalInstaller.InstallBindings(container);
+        Global.BuildNonLazy();
         await m_GlobalInstaller.Bootstrap(container);
 
         await SceneManager.LoadSceneAsync("Title");
@@ -225,6 +230,7 @@ IDIContainer scene     = container;
 
 Object.FindAnyObjectByType<SceneInstallerMonoBehaviour>().SceneInstaller.InstallBindings(scene);
 scene.SetFallback(Boot.Global);
+scene.BuildNonLazy();
 ```
 
 Some suggestions for fitting it in:

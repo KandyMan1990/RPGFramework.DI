@@ -115,6 +115,10 @@ namespace RPGFramework.DI
         {
         }
 
+        void IDIContainer.BuildNonLazy()
+        {
+        }
+
         IReadOnlyDictionary<Type, Func<IDIContainer, object>> IDIContainer.Bindings => m_NoBindings;
 
         IReadOnlyDictionary<Type, Func<Transform, ResolutionContext, object>> IDIContainer.PrefabBindings => m_NoPrefabBindings;

@@ -2,7 +2,8 @@
     "name": "RPGFramework.DI.Tests",
     "rootNamespace": "RPGFramework.DI.Tests",
     "references": [
-        "RPGFramework.DI"
+        "RPGFramework.DI",
+        "UnityEngine.TestRunner"
     ],
     "includePlatforms": [
         "Editor"
