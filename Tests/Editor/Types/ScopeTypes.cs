@@ -25,4 +25,18 @@ namespace RPGFramework.DI.Tests.Types
             Scoped = scoped;
         }
     }
+
+    internal interface IResolverHolder
+    {
+    }
+
+    internal sealed class ResolverHolder : IResolverHolder
+    {
+        internal readonly IDIResolver Resolver;
+
+        public ResolverHolder(IDIResolver resolver)
+        {
+            Resolver = resolver;
+        }
+    }
 }

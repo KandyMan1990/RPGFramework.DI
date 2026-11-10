@@ -46,6 +46,10 @@ IDIResolver  resolver    = diContainer;
 `NullDIContainer` is an `IDIContainer` that binds nothing, so a container falling back to it finds nothing there: it
 holds a place before a real container exists. It is not a resolver, and `AsNonLazy` on one of its binds does nothing.
 
+A class can take `IDIResolver` as it would any dependency, as every `DIContainer` provides itself: a singleton gets the
+container it is bound in, and a transient the container the resolve started from. So binding `IDIResolver` yourself
+throws as already bound, and a global singleton's resolver stays the global container whichever scene is loaded.
+
 ### Binding
 
 ```csharp
@@ -257,8 +261,8 @@ Some suggestions for fitting it in:
   container as its fallback, and resolves the module from it. The game's scene installer binds the game's types, and
   each module then binds its own into the same container from a component in its scene, so a module is built fresh
   every time it is entered.
-- **`IDIResolver` in the global container is the current scene's**, so something global that resolves later finds the
-  scene's bindings as well as its own.
+- **A module's `IDIResolver` is its own scene's container**, as a module is bound there, so what it resolves later finds
+  the scene's bindings as well as the global ones.
 - **Both are disposed when the game quits.**
 
 ---

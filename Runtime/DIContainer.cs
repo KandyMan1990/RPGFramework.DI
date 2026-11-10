@@ -225,6 +225,10 @@ namespace RPGFramework.DI
             m_InjectCache            = new Dictionary<Type, InjectInfo>();
             m_Disposables            = new List<IDisposable>();
             m_NonLazy                = new List<SingletonLazy>();
+
+            // Found first in the container a resolve starts from: a singleton gets the container it is bound in, as it is
+            // built from there, and a transient the container that asked.
+            m_Bindings[typeof(IDIResolver)] = context => context;
         }
 
         IDIContainer IDIContainer.Fallback => m_Fallback;
