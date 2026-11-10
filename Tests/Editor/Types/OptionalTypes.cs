@@ -101,6 +101,18 @@ namespace RPGFramework.DI.Tests.Types
         public IMissing Missing;
     }
 
+    internal sealed class GetOnlyTarget
+    {
+        [Inject]
+        public IA Value { get; }
+    }
+
+    internal sealed class PrivateSetterTarget
+    {
+        [Inject]
+        public IA Value { get; private set; }
+    }
+
     internal sealed class OptionalBrokenField
     {
         [InjectOptional]

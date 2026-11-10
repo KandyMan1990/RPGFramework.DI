@@ -1108,6 +1108,13 @@ namespace RPGFramework.DI
                 {
                     PropertyInfo property = properties[i];
 
+#if UNITY_EDITOR
+                    if (!property.CanWrite && IsInjectable(property, out _))
+                    {
+                        throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BuildInjectInfo)} Property [{type.Name}.{property.Name}] is marked for injection but has no setter, so nothing can fill it. Give it one; a private one will do");
+                    }
+#endif
+
                     if (!property.CanWrite || !IsInjectable(property, out bool propertyOptional))
                     {
                         continue;

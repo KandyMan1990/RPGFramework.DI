@@ -112,7 +112,7 @@ public class PlayerController : MonoBehaviour
 ```
 
 - `[Inject]` marks a field, property or method the container must fill. Private members and those of base classes are
-  found too.
+  found too. A property needs a setter, though a private one will do: in the editor, marking one without throws.
 - `[InjectOptional]` makes a missing binding acceptable. On a field, property or method, the member is left alone, and a
   method is skipped if any of its dependencies is missing. On a constructor's or an injected method's parameter, the
   parameter takes the default it declares, or null.
