@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Text;
 using UnityEngine;
@@ -446,14 +445,35 @@ namespace RPGFramework.DI
 
         private static Exception BuildCircularDependencyException(Type repeating)
         {
-            IEnumerable<Type> chain = m_ConstructionStack.Reverse().Append(repeating);
-
-            string path = string.Join(" -> ", chain.Select(t => t.Name));
-
-            return new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BuildCircularDependencyException)} Circular dependency detected:\n{path}");
+            return new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BuildCircularDependencyException)} Circular dependency detected:\n{DescribeConstructionChain(repeating)}");
         }
 
-        private object ResolveInternal(Type type, IDIContainer context)
+        /// <returns>What is being built, outermost first, then <paramref name="last" />.</returns>
+        private static string DescribeConstructionChain(Type last)
+        {
+            Type[]        building = m_ConstructionStack.ToArray();
+            StringBuilder chain    = new StringBuilder();
+
+            // A stack's array comes newest first.
+            for (int i = building.Length - 1; i >= 0; i--)
+            {
+                chain.Append(building[i].Name).Append(" -> ");
+            }
+
+            return chain.Append(last.Name).ToString();
+        }
+
+        private static string DescribeWhatNeeded(Type missing, MemberInfo member)
+        {
+            if (m_ConstructionStack.Count > 0)
+            {
+                return $", needed by {m_ConstructionStack.Peek().Name} (chain: {DescribeConstructionChain(missing)})";
+            }
+
+            return member == null ? string.Empty : $", needed by [Inject] {member.MemberType.ToString().ToLowerInvariant()} {member.Name} on {member.DeclaringType.Name}";
+        }
+
+        private object ResolveInternal(Type type, IDIContainer context, MemberInfo neededBy = null)
         {
             IDIContainer current = context;
 
@@ -467,7 +487,7 @@ namespace RPGFramework.DI
                 current = current.Fallback;
             }
 
-            throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(ResolveInternal)} No binding exists for type [{type}] in container or its fallbacks");
+            throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(ResolveInternal)} No binding exists for type [{type}] in container or its fallbacks{DescribeWhatNeeded(type, neededBy)}");
         }
 
         private object InstantiatePrefabInternal(Type type, ResolutionContext context, Transform parent)
@@ -847,7 +867,7 @@ namespace RPGFramework.DI
                     continue;
                 }
 
-                args[i] = ResolveInternal(parameters[i], context);
+                args[i] = ResolveInternal(parameters[i], context, method);
             }
 
             return args;
@@ -1122,10 +1142,10 @@ namespace RPGFramework.DI
                 {
                     case FieldInfo field:
                         // No delegate path: a field has no setter method to bind one to.
-                        field.SetValue(instance, ResolveInternal(entry.Dependencies[0], context));
+                        field.SetValue(instance, ResolveInternal(entry.Dependencies[0], context, field));
                         break;
                     case PropertyInfo property:
-                        object value = ResolveInternal(entry.Dependencies[0], context);
+                        object value = ResolveInternal(entry.Dependencies[0], context, property);
 
                         if (entry.Setter != null)
                         {

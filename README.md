@@ -79,7 +79,8 @@ object  menu   = resolver.Resolve(menuType);
 resolver.InjectInto(someExistingObject);                                  // fill an object's [Inject] members
 ```
 
-A type with no binding throws `DIBindingNotFoundException`, whose `ContractType` names it. A circular dependency
+A type with no binding throws `DIBindingNotFoundException`, whose `ContractType` names it and whose message says what
+needed it: the classes being built, outermost first, or the `[Inject]` member being filled. A circular dependency
 throws, listing the chain that loops.
 
 ### Constructors

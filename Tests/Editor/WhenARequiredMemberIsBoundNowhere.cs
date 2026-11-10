@@ -14,5 +14,15 @@ namespace RPGFramework.DI.Tests
 
             StringAssert.Contains(nameof(IMissing), refused.Message);
         }
+
+        [Test]
+        public void ThenTheErrorNamesTheMemberThatNeededIt()
+        {
+            IDIResolver resolver = new DIContainer();
+
+            DIBindingNotFoundException refused = Assert.Throws<DIBindingNotFoundException>(() => resolver.InjectInto(new RequiredTarget()));
+
+            StringAssert.Contains($"field {nameof(RequiredTarget.Missing)} on {nameof(RequiredTarget)}", refused.Message);
+        }
     }
 }
