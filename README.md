@@ -44,8 +44,7 @@ IDIResolver  resolver    = diContainer;
 ```
 
 `NullDIContainer` is an `IDIContainer` that binds nothing, so a container falling back to it finds nothing there: it
-holds a place before a real container exists. It is not a resolver, and its singleton binds return null, so there is
-nothing to call `AsNonLazy` on.
+holds a place before a real container exists. It is not a resolver, and `AsNonLazy` on one of its binds does nothing.
 
 ### Binding
 

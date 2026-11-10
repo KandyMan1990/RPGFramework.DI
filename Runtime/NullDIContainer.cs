@@ -19,7 +19,7 @@ namespace RPGFramework.DI
 
         INonLazyBinding IDIContainer.BindSingleton<TInterface, TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         void IDIContainer.BindSingletonFromInstance<TInterface>(TInterface instance)
@@ -32,7 +32,7 @@ namespace RPGFramework.DI
 
         INonLazyBinding IDIContainer.BindSingletonIfNotRegistered<TInterface, TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         void IDIContainer.BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance)
@@ -45,7 +45,7 @@ namespace RPGFramework.DI
 
         INonLazyBinding IDIContainer.ForceBindSingleton<TInterface, TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         void IDIContainer.ForceBindSingletonFromInstance<TInterface>(TInterface instance)
@@ -54,32 +54,32 @@ namespace RPGFramework.DI
 
         INonLazyBinding IDIContainer.BindInterfacesToSelfSingleton<TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         INonLazyBinding IDIContainer.BindInterfacesAndConcreteToSelfSingleton<TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         INonLazyBinding IDIContainer.BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         INonLazyBinding IDIContainer.BindInterfacesAndConcreteToSelfSingletonIfNotRegistered<TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         INonLazyBinding IDIContainer.ForceBindInterfacesToSelfSingleton<TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         INonLazyBinding IDIContainer.ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>()
         {
-            return null;
+            return NonLazyBinding.None;
         }
 
         void IDIContainer.BindPrefab<TInterface, TConcrete>(TConcrete prefab)
