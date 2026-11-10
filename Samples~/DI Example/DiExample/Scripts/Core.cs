@@ -40,6 +40,21 @@ namespace DiExample
 
         async Task ICore.LoadModuleAsync<T>(string sceneName)
         {
+            // A button or Start begins a load and moves on, so a failure is reported here or it is never seen.
+            try
+            {
+                await LoadModuleAsync<T>(sceneName);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+
+                throw;
+            }
+        }
+
+        private async Task LoadModuleAsync<T>(string sceneName) where T : IModule
+        {
             await m_CurrentModule.OnExitAsync();
 
             await SceneManager.LoadSceneAsync(sceneName);
