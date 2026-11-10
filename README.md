@@ -132,6 +132,11 @@ sceneContainer.SetFallback(globalContainer);
 A container that cannot resolve a type asks its fallback, and so on along the chain, so a scene's container sees its own
 bindings first and the global ones behind them. A fallback that leads back to the container throws.
 
+A singleton is built from the container it is bound in, and that container's fallbacks, whichever container it was
+resolved through. A global singleton therefore never sees a scene's bindings: it cannot hold on to objects that go when
+the scene does, and what it is built with does not depend on which scene asked for it first. A transient is built from
+the container the resolve started from.
+
 ### Installers
 
 Installers are ScriptableObjects that bind into a container:

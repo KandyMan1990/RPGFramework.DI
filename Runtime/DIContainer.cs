@@ -517,19 +517,21 @@ namespace RPGFramework.DI
         /// One lazy can back several contracts, as it does for an interfaces-to-self bind. The factory still
         /// runs once, so the instance is registered for disposal once.
         /// </remarks>
-        private ContextualLazy NewSingletonLazy(Type tConcrete)
+        private SingletonLazy NewSingletonLazy(Type tConcrete)
         {
-            return new ContextualLazy(context =>
-                                      {
-                                          object instance = CreateInstance(tConcrete, context);
+            return new SingletonLazy(() =>
+                                     {
+                                         // From this container, whichever the resolve started from: a global singleton built
+                                         // from a scene's bindings would keep that scene's objects after they are disposed.
+                                         object instance = CreateInstance(tConcrete, this);
 
-                                          if (instance is IDisposable disposable)
-                                          {
-                                              m_Disposables.Add(disposable);
-                                          }
+                                         if (instance is IDisposable disposable)
+                                         {
+                                             m_Disposables.Add(disposable);
+                                         }
 
-                                          return instance;
-                                      });
+                                         return instance;
+                                     });
         }
 
         private INonLazyBinding BindType(Type tInterface, Type tConcrete, BindPolicy bindPolicy, bool singleton)
@@ -547,11 +549,11 @@ namespace RPGFramework.DI
                 return NonLazyBinding.None;
             }
 
-            ContextualLazy lazy = NewSingletonLazy(tConcrete);
+            SingletonLazy lazy = NewSingletonLazy(tConcrete);
 
-            m_Bindings[tInterface] = context => lazy.GetValue(context);
+            m_Bindings[tInterface] = _ => lazy.GetValue();
 
-            return new NonLazyBinding(() => lazy.GetValue(this));
+            return new NonLazyBinding(lazy.GetValue);
         }
 
         private void BindInstance(Type tInterface, object instance, BindPolicy bindPolicy)
@@ -659,7 +661,7 @@ namespace RPGFramework.DI
 
             CacheConstructorAndParams(tConcrete);
 
-            ContextualLazy lazy = NewSingletonLazy(tConcrete);
+            SingletonLazy lazy = NewSingletonLazy(tConcrete);
 
             bool bound = false;
 
@@ -672,12 +674,12 @@ namespace RPGFramework.DI
                     continue;
                 }
 
-                m_Bindings[typeToBind] = lazy.GetValue;
+                m_Bindings[typeToBind] = _ => lazy.GetValue();
 
                 bound = true;
             }
 
-            return bound ? new NonLazyBinding(() => lazy.GetValue(this)) : NonLazyBinding.None;
+            return bound ? new NonLazyBinding(lazy.GetValue) : NonLazyBinding.None;
         }
 
         private void BindPrefabInternal<TInterface, TConcrete>(TConcrete prefab, BindPolicy bindPolicy) where TConcrete : Component, TInterface
@@ -1162,23 +1164,23 @@ namespace RPGFramework.DI
         }
     }
 
-    internal sealed class ContextualLazy
+    internal sealed class SingletonLazy
     {
         private object m_Value;
         private bool   m_Created;
 
-        private readonly Func<IDIContainer, object> m_Factory;
+        private readonly Func<object> m_Factory;
 
-        internal ContextualLazy(Func<IDIContainer, object> factory)
+        internal SingletonLazy(Func<object> factory)
         {
             m_Factory = factory;
         }
 
-        internal object GetValue(IDIContainer ctx)
+        internal object GetValue()
         {
             if (!m_Created)
             {
-                m_Value   = m_Factory(ctx);
+                m_Value   = m_Factory();
                 m_Created = true;
             }
 
