@@ -175,7 +175,8 @@ public class MyGlobalInstaller : GlobalInstallerBase
 
 `IDIContainer` is `IDisposable`. Disposing a container disposes, latest first, every singleton it built and every
 instance bound with `BindSingletonFromInstance` that implements `IDisposable`, then clears its bindings. Transients are
-not tracked: whoever resolved one owns it.
+not tracked: whoever resolved one owns it. Resolving from a disposed container throws `ObjectDisposedException`, so
+something still holding a scene's container once the scene has gone is told that, not that a binding is missing.
 
 ```csharp
 container.Dispose();

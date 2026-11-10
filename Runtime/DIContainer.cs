@@ -209,6 +209,7 @@ namespace RPGFramework.DI
         private readonly List<SingletonLazy>                                          m_NonLazy;
 
         private IDIContainer m_Fallback;
+        private bool         m_Disposed;
 
         // Made only when a bound type has an [InjectOptional] constructor parameter, which few do.
         private Dictionary<Type, bool[]> m_ConstructorOptionalCache;
@@ -225,6 +226,7 @@ namespace RPGFramework.DI
             m_InjectCache            = new Dictionary<Type, InjectInfo>();
             m_Disposables            = new List<IDisposable>();
             m_NonLazy                = new List<SingletonLazy>();
+            m_Disposed               = false;
 
             // Found first in the container a resolve starts from: a singleton gets the container it is bound in, as it is
             // built from there, and a transient the container that asked.
@@ -470,6 +472,7 @@ namespace RPGFramework.DI
             m_PrefabBindings.Clear();
             m_InjectCache.Clear();
             m_Fallback = null;
+            m_Disposed = true;
         }
 
         private static Exception BuildCircularDependencyException(Type repeating)
@@ -502,6 +505,14 @@ namespace RPGFramework.DI
             return member == null ? string.Empty : $", needed by [Inject] {member.MemberType.ToString().ToLowerInvariant()} {member.Name} on {member.DeclaringType.Name}";
         }
 
+        private void ThrowIfDisposed(Type type)
+        {
+            if (m_Disposed)
+            {
+                throw new ObjectDisposedException(nameof(DIContainer), $"[{type}] was asked of a container that has been disposed, as a scene's is when the scene goes");
+            }
+        }
+
         private object ResolveInternal(Type type, IDIContainer context, MemberInfo neededBy = null)
         {
 #if UNITY_EDITOR
@@ -523,6 +534,8 @@ namespace RPGFramework.DI
                 current = current.Fallback;
             }
 
+            ThrowIfDisposed(type);
+
             throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(ResolveInternal)} No binding exists for type [{type}] in container or its fallbacks{DescribeWhatNeeded(type, neededBy)}");
         }
 
@@ -539,6 +552,8 @@ namespace RPGFramework.DI
 
                 current = current.Fallback;
             }
+
+            ThrowIfDisposed(type);
 
             throw new DIBindingNotFoundException(type, $"{nameof(DIContainer)}::{nameof(InstantiatePrefabInternal)} No binding exists for type [{type}] in container or its fallbacks");
         }
