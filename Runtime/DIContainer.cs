@@ -1082,8 +1082,9 @@ namespace RPGFramework.DI
             // Walked a level at a time with DeclaredOnly, because GetFields/GetProperties/GetMethods return
             // inherited public and protected members but never private members of base types — so [Inject] on
             // a private base-class field was silently skipped despite InjectAttribute declaring
-            // Inherited = true.
-            for (Type type = concreteType; type != null && type != typeof(object); type = type.BaseType)
+            // Inherited = true. It stops at Unity's own classes, which declare nothing injectable and are most of a
+            // component's members.
+            for (Type type = concreteType; type != null && type != typeof(object) && type != typeof(MonoBehaviour) && type != typeof(ScriptableObject); type = type.BaseType)
             {
                 const BindingFlags declared = flags | BindingFlags.DeclaredOnly;
 
