@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -198,6 +199,7 @@ namespace RPGFramework.DI
         void AsNonLazy();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class DIContainer : IDIContainer, IDIResolver
     {
         private readonly Dictionary<Type, Func<IDIContainer, object>>                 m_Bindings;
@@ -1226,6 +1228,7 @@ namespace RPGFramework.DI
         }
     }
 
+    [NoAutoStaticsCleanup]
     internal sealed class NonLazyBinding : INonLazyBinding
     {
         internal static readonly INonLazyBinding None = new NonLazyBinding(null, null);

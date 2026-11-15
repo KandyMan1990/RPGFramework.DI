@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace RPGFramework.DI
 {
+    [NoAutoStaticsCleanup]
     public sealed class NullDIContainer : IDIContainer
     {
         private static readonly IReadOnlyDictionary<Type, Func<IDIContainer, object>>                 m_NoBindings       = new Dictionary<Type, Func<IDIContainer, object>>();

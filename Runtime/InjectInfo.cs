@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 
 namespace RPGFramework.DI
 {
@@ -25,6 +26,7 @@ namespace RPGFramework.DI
         }
     }
 
+    [NoAutoStaticsCleanup]
     internal sealed class InjectInfo
     {
         internal readonly InjectMember[] Members;

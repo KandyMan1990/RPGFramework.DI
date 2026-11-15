@@ -4,7 +4,7 @@ A lightweight, Unity-friendly dependency injection container for plain C# classe
 and prefabs. It injects through constructors, fields, properties and methods, and any of them can be optional. It is
 general purpose: nothing in it is specific to the RPG Framework.
 
-Requires Unity 6000.6 or newer, and depends on nothing else.
+Requires Unity 6000.7 or newer, and depends on nothing else.
 
 ---
 
