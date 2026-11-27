@@ -96,6 +96,33 @@ namespace RPGFramework.DI
         {
         }
 
+        void IDIContainer.BindTransientLocally<TInterface, TConcrete>()
+        {
+        }
+
+        INonLazyBinding IDIContainer.BindSingletonLocally<TInterface, TConcrete>()
+        {
+            return NonLazyBinding.None;
+        }
+
+        void IDIContainer.BindSingletonFromInstanceLocally<TInterface>(TInterface instance)
+        {
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesToSelfSingletonLocally<TConcrete>()
+        {
+            return NonLazyBinding.None;
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesAndConcreteToSelfSingletonLocally<TConcrete>()
+        {
+            return NonLazyBinding.None;
+        }
+
+        void IDIContainer.BindPrefabLocally<TInterface, TConcrete>(TConcrete prefab)
+        {
+        }
+
         IDIContainer IDIContainer.Fallback => null;
 
         bool IDIContainer.Unbind<TInterface>()

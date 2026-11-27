@@ -22,7 +22,7 @@ namespace RPGFramework.DI.Tests
         {
             m_Global.BindSingleton<IScoped, GlobalScoped>();
             m_Global.BindSingleton<IScopeConsumer, ScopeConsumer>();
-            m_Scene.BindSingleton<IScoped, SceneScoped>();
+            m_Scene.BindSingletonLocally<IScoped, SceneScoped>();
 
             ScopeConsumer built = (ScopeConsumer)((IDIResolver)m_Scene).Resolve<IScopeConsumer>();
 
@@ -34,7 +34,7 @@ namespace RPGFramework.DI.Tests
         {
             m_Global.BindSingleton<IScoped, GlobalScoped>();
             m_Global.BindInterfacesToSelfSingleton<ScopeConsumer>();
-            m_Scene.BindSingleton<IScoped, SceneScoped>();
+            m_Scene.BindSingletonLocally<IScoped, SceneScoped>();
 
             ScopeConsumer built = (ScopeConsumer)((IDIResolver)m_Scene).Resolve<IScopeConsumer>();
 
@@ -57,7 +57,7 @@ namespace RPGFramework.DI.Tests
         {
             m_Global.BindSingleton<IScoped, GlobalScoped>();
             m_Global.BindTransient<IScopeConsumer, ScopeConsumer>();
-            m_Scene.BindSingleton<IScoped, SceneScoped>();
+            m_Scene.BindSingletonLocally<IScoped, SceneScoped>();
 
             ScopeConsumer built = (ScopeConsumer)((IDIResolver)m_Scene).Resolve<IScopeConsumer>();
 

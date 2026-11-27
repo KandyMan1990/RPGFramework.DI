@@ -68,11 +68,11 @@ namespace DiExample
             m_SceneContainer = sceneContainer;
             m_SceneResolver = sceneContainer;
 
+            m_SceneContainer.SetFallback(m_GlobalContainer);
+
             SceneInstallerMonoBehaviour sceneInstallerMonoBehaviour = Object.FindAnyObjectByType<SceneInstallerMonoBehaviour>();
             SceneInstallerBase sceneInstaller = sceneInstallerMonoBehaviour.SceneInstaller;
             sceneInstaller.InstallBindings(m_SceneContainer);
-
-            m_SceneContainer.SetFallback(m_GlobalContainer);
 
             m_SceneContainer.BuildNonLazy();
 

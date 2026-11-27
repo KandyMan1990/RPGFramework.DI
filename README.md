@@ -12,7 +12,8 @@ Requires Unity 6000.7 or newer, and depends on nothing else.
 
 - **Transient and singleton bindings**, from a type or from an instance you already have.
 - **Interfaces to self**: bind every interface a class implements but .NET's own, optionally the class itself too.
-- **Conditional and forced bindings**: bind only if nothing is bound yet, or replace what is.
+- **Conditional, forced and local bindings**: bind only if nothing is bound yet, replace what this container binds, or
+  override a fallback's binding for this container alone.
 - **Prefabs**: bind a prefab to an interface and instantiate it with its dependencies injected.
 - **Optional injection** on fields, properties and methods, and on constructor and method parameters.
 - **Fallback containers**: a scene's container falls back to a global one, so a scene sees both.
@@ -65,14 +66,21 @@ container.BindSingleton<ISaveService, SaveService>().AsNonLazy();         // mad
 installer has run and the fallback is set, so a singleton can depend on what is bound after it or in the fallback. In
 the editor, resolving from a container that still has one to build logs a warning.
 
-Binding a type that is already bound throws. Two other forms of every binding change that:
+Binding a type that is already bound throws. Three other forms of every binding change that:
 
 ```csharp
 container.BindSingletonIfNotRegistered<IConfig, DefaultConfig>();         // skipped if IConfig is already bound
-container.ForceBindSingleton<ILoginProvider, AppleLoginProvider>();       // replaces whatever ILoginProvider was bound to
+container.ForceBindSingleton<ILoginProvider, AppleLoginProvider>();       // replaces this container's ILoginProvider
+container.BindSingletonLocally<IClock, PausedClock>();                    // overrides a fallback's IClock, here alone
 ```
 
-The forced form suits platform overrides: bind a default everywhere, then force the platform's own over it.
+**Already bound** means bound in this container or in any it falls back to, as resolving would find it there, so set a
+scene container's fallback before its installers run; set later, it refuses a fallback that binds what the container
+does. A default bound `IfNotRegistered` in a scene then stands aside for one the global container has, and a plain or
+forced binding of it throws. Overriding a global binding is said in so many words, with `Locally`: the scene resolves
+its own, the global container keeps its binding, and unbinding the scene's brings the global one back.
+
+The forced form suits platform overrides: bind a default, then force the platform's own over it in the same container.
 
 `Unbind<T>()` removes a binding. `Unbind<T>(instance)` removes it and hands the instance back, so the container will no
 longer dispose it. `UnbindInterfacesToSelf<T>()` undoes either interfaces-to-self binding.

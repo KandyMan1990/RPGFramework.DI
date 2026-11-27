@@ -12,7 +12,8 @@ namespace RPGFramework.DI
     {
         ErrorIfExists,
         SkipIfExists,
-        Overwrite
+        Overwrite,
+        Local
     }
 
     /// <summary>
@@ -22,25 +23,26 @@ namespace RPGFramework.DI
     public interface IDIContainer : IDisposable
     {
         /// <summary>
-        /// Binds a contract to a class built afresh on every resolve. Throws if the contract is bound already.
+        /// Binds a contract to a class built afresh on every resolve. Throws if the contract is bound already, here or
+        /// in a container this falls back to.
         /// </summary>
         void BindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
 
         /// <summary>
         /// Binds a contract to one instance of a class, built when first resolved. Throws if the contract is bound
-        /// already.
+        /// already, here or in a container this falls back to.
         /// </summary>
         INonLazyBinding BindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
 
         /// <summary>
         /// Binds a contract to an instance you made, which the container then disposes. Throws if the contract is bound
-        /// already.
+        /// already, here or in a container this falls back to.
         /// </summary>
         void BindSingletonFromInstance<TInterface>(TInterface instance);
 
         /// <summary>
-        /// Binds every interface a class implements to one instance of it. Throws if any is bound already, or if it
-        /// implements none.
+        /// Binds every interface a class implements to one instance of it. Throws if any is bound already, here or in a
+        /// container this falls back to, or if it implements none.
         /// </summary>
         INonLazyBinding BindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
 
@@ -51,74 +53,117 @@ namespace RPGFramework.DI
 
         /// <summary>
         /// Binds a contract to a prefab, for <see cref="IDIResolver.InstantiatePrefab{TInterface}" />. Throws if the
-        /// contract is bound already.
+        /// contract is bound already, here or in a container this falls back to.
         /// </summary>
         void BindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
 
         /// <summary>
-        /// As <see cref="BindTransient{TInterface,TConcrete}" />, doing nothing if the contract is bound already.
+        /// As <see cref="BindTransient{TInterface,TConcrete}" />, doing nothing if the contract is bound
+        /// already, here or in a container this falls back to.
         /// </summary>
         void BindTransientIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
 
         /// <summary>
-        /// As <see cref="BindSingleton{TInterface,TConcrete}" />, doing nothing if the contract is bound already.
+        /// As <see cref="BindSingleton{TInterface,TConcrete}" />, doing nothing if the contract is bound
+        /// already, here or in a container this falls back to.
         /// </summary>
         INonLazyBinding BindSingletonIfNotRegistered<TInterface, TConcrete>() where TConcrete : TInterface;
 
         /// <summary>
-        /// As <see cref="BindSingletonFromInstance{TInterface}" />, doing nothing if the contract is bound already.
+        /// As <see cref="BindSingletonFromInstance{TInterface}" />, doing nothing if the contract is bound
+        /// already, here or in a container this falls back to.
         /// </summary>
         void BindSingletonFromInstanceIfNotRegistered<TInterface>(TInterface instance);
 
         /// <summary>
-        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, skipping each interface bound already.
+        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, skipping each interface bound already,
+        /// here or in a container this falls back to.
         /// </summary>
         INonLazyBinding BindInterfacesToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
 
         /// <summary>
-        /// As <see cref="BindInterfacesAndConcreteToSelfSingleton{TConcrete}" />, skipping each contract bound already.
+        /// As <see cref="BindInterfacesAndConcreteToSelfSingleton{TConcrete}" />, skipping each contract bound
+        /// already, here or in a container this falls back to.
         /// </summary>
         INonLazyBinding BindInterfacesAndConcreteToSelfSingletonIfNotRegistered<TConcrete>() where TConcrete : class;
 
         /// <summary>
-        /// As <see cref="BindPrefab{TInterface,TConcrete}" />, doing nothing if the contract is bound already.
+        /// As <see cref="BindPrefab{TInterface,TConcrete}" />, doing nothing if the contract is bound
+        /// already, here or in a container this falls back to.
         /// </summary>
         void BindPrefabIfNotRegistered<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
 
         /// <summary>
-        /// As <see cref="BindTransient{TInterface,TConcrete}" />, replacing any binding the contract has. What it
-        /// replaces is not disposed.
+        /// As <see cref="BindTransient{TInterface,TConcrete}" />, replacing this container's binding of the contract,
+        /// undisposed. Throws if a container this falls back to binds it.
         /// </summary>
         void ForceBindTransient<TInterface, TConcrete>() where TConcrete : TInterface;
 
         /// <summary>
-        /// As <see cref="BindSingleton{TInterface,TConcrete}" />, replacing any binding the contract has. What it
-        /// replaces is not disposed.
+        /// As <see cref="BindSingleton{TInterface,TConcrete}" />, replacing this container's binding of the contract,
+        /// undisposed. Throws if a container this falls back to binds it.
         /// </summary>
         INonLazyBinding ForceBindSingleton<TInterface, TConcrete>() where TConcrete : TInterface;
 
         /// <summary>
-        /// As <see cref="BindSingletonFromInstance{TInterface}" />, replacing any binding the contract has. What it
-        /// replaces is not disposed.
+        /// As <see cref="BindSingletonFromInstance{TInterface}" />, replacing this container's binding of the contract,
+        /// undisposed. Throws if a container this falls back to binds it.
         /// </summary>
         void ForceBindSingletonFromInstance<TInterface>(TInterface instance);
 
         /// <summary>
-        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, replacing any bindings they have. What it
-        /// replaces is not disposed.
+        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, replacing this container's bindings of them,
+        /// undisposed. Throws if a container this falls back to binds any.
         /// </summary>
         INonLazyBinding ForceBindInterfacesToSelfSingleton<TConcrete>() where TConcrete : class;
 
         /// <summary>
-        /// As <see cref="BindInterfacesAndConcreteToSelfSingleton{TConcrete}" />, replacing any bindings they have.
-        /// What it replaces is not disposed.
+        /// As <see cref="BindInterfacesAndConcreteToSelfSingleton{TConcrete}" />, replacing this container's bindings
+        /// of them, undisposed. Throws if a container this falls back to binds any.
         /// </summary>
         INonLazyBinding ForceBindInterfacesAndConcreteToSelfSingleton<TConcrete>() where TConcrete : class;
 
         /// <summary>
-        /// As <see cref="BindPrefab{TInterface,TConcrete}" />, replacing any binding the contract has.
+        /// As <see cref="BindPrefab{TInterface,TConcrete}" />, replacing this container's binding of the contract.
+        /// Throws if a container this falls back to binds it.
         /// </summary>
         void ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
+
+        /// <summary>
+        /// As <see cref="BindTransient{TInterface,TConcrete}" />, overriding for this container alone a binding a
+        /// container it falls back to has, which keeps its own. Throws if the contract is bound in this container.
+        /// </summary>
+        void BindTransientLocally<TInterface, TConcrete>() where TConcrete : TInterface;
+
+        /// <summary>
+        /// As <see cref="BindSingleton{TInterface,TConcrete}" />, overriding for this container alone a binding a
+        /// container it falls back to has, which keeps its own. Throws if the contract is bound in this container.
+        /// </summary>
+        INonLazyBinding BindSingletonLocally<TInterface, TConcrete>() where TConcrete : TInterface;
+
+        /// <summary>
+        /// As <see cref="BindSingletonFromInstance{TInterface}" />, overriding for this container alone a binding a
+        /// container it falls back to has, which keeps its own. Throws if the contract is bound in this container.
+        /// </summary>
+        void BindSingletonFromInstanceLocally<TInterface>(TInterface instance);
+
+        /// <summary>
+        /// As <see cref="BindInterfacesToSelfSingleton{TConcrete}" />, overriding for this container alone the
+        /// bindings the containers it falls back to have. Throws if any is bound in this container.
+        /// </summary>
+        INonLazyBinding BindInterfacesToSelfSingletonLocally<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// As <see cref="BindInterfacesAndConcreteToSelfSingleton{TConcrete}" />, overriding for this container alone
+        /// the bindings the containers it falls back to have. Throws if any is bound in this container.
+        /// </summary>
+        INonLazyBinding BindInterfacesAndConcreteToSelfSingletonLocally<TConcrete>() where TConcrete : class;
+
+        /// <summary>
+        /// As <see cref="BindPrefab{TInterface,TConcrete}" />, overriding for this container alone a binding a
+        /// container it falls back to has, which keeps its own. Throws if the contract is bound in this container.
+        /// </summary>
+        void BindPrefabLocally<TInterface, TConcrete>(TConcrete prefab) where TConcrete : Component, TInterface;
 
         /// <summary>
         /// Removes a contract's binding, returning whether it had one. Anything the container built stays its to
@@ -137,7 +182,8 @@ namespace RPGFramework.DI
         bool UnbindInterfacesToSelf<TConcrete>() where TConcrete : class;
 
         /// <summary>
-        /// Sets the container asked for whatever this one cannot resolve. Throws if the chain would lead back here.
+        /// Sets the container asked for whatever this one cannot resolve, before anything is bound. Throws if the chain
+        /// would lead back here, or binds a contract this container binds.
         /// </summary>
         void SetFallback(IDIContainer fallback);
 
@@ -247,7 +293,26 @@ namespace RPGFramework.DI
                 }
             }
 
+            // A contract bound here and in the new fallback would be overridden without a local bind saying so.
+            foreach (Type type in m_Bindings.Keys)
+            {
+                ThrowIfBoundInFallbacks(fallback, type);
+            }
+
+            foreach (Type type in m_PrefabBindings.Keys)
+            {
+                ThrowIfBoundInFallbacks(fallback, type);
+            }
+
             m_Fallback = fallback;
+        }
+
+        private static void ThrowIfBoundInFallbacks(IDIContainer fallback, Type type)
+        {
+            if (IsBoundInFallbacks(fallback, type))
+            {
+                throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(IDIContainer.SetFallback)} [{type}] is bound in this container and in the requested fallback. Set the fallback before binding, then bind it locally to override the fallback's");
+            }
         }
 
         void IDIContainer.BuildNonLazy()
@@ -312,6 +377,21 @@ namespace RPGFramework.DI
             BindInstance(typeof(TInterface), instance, BindPolicy.Overwrite);
         }
 
+        void IDIContainer.BindTransientLocally<TInterface, TConcrete>()
+        {
+            BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.Local, false);
+        }
+
+        INonLazyBinding IDIContainer.BindSingletonLocally<TInterface, TConcrete>()
+        {
+            return BindType(typeof(TInterface), typeof(TConcrete), BindPolicy.Local, true);
+        }
+
+        void IDIContainer.BindSingletonFromInstanceLocally<TInterface>(TInterface instance)
+        {
+            BindInstance(typeof(TInterface), instance, BindPolicy.Local);
+        }
+
         INonLazyBinding IDIContainer.BindInterfacesToSelfSingleton<TConcrete>()
         {
             return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.ErrorIfExists, false);
@@ -342,6 +422,16 @@ namespace RPGFramework.DI
             return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Overwrite, true);
         }
 
+        INonLazyBinding IDIContainer.BindInterfacesToSelfSingletonLocally<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Local, false);
+        }
+
+        INonLazyBinding IDIContainer.BindInterfacesAndConcreteToSelfSingletonLocally<TConcrete>()
+        {
+            return BindInterfacesToSelfSingletonInternal<TConcrete>(BindPolicy.Local, true);
+        }
+
         void IDIContainer.BindPrefab<TInterface, TConcrete>(TConcrete prefab)
         {
             BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.ErrorIfExists);
@@ -355,6 +445,11 @@ namespace RPGFramework.DI
         void IDIContainer.ForceBindPrefab<TInterface, TConcrete>(TConcrete prefab)
         {
             BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.Overwrite);
+        }
+
+        void IDIContainer.BindPrefabLocally<TInterface, TConcrete>(TConcrete prefab)
+        {
+            BindPrefabInternal<TInterface, TConcrete>(prefab, BindPolicy.Local);
         }
 
         bool IDIContainer.Unbind<TInterface>()
@@ -562,24 +657,79 @@ namespace RPGFramework.DI
 
         private bool HandleExistingBinding(Type type, BindPolicy bindPolicy, string context)
         {
-            if (!m_Bindings.ContainsKey(type) && !m_PrefabBindings.ContainsKey(type))
+            if (!CanBind(type, bindPolicy, context))
             {
-                return true;
+                return false;
             }
+
+            if (bindPolicy == BindPolicy.Overwrite)
+            {
+                m_Bindings.Remove(type);
+                m_PrefabBindings.Remove(type);
+            }
+
+            return true;
+        }
+
+        // Whether a contract is to be bound, throwing where the policy refuses it; changes nothing. Bound already means
+        // here or in a fallback, as resolving would find it there: only a local bind overrides a fallback's.
+        private bool CanBind(Type type, BindPolicy bindPolicy, string context)
+        {
+            bool here   = m_Bindings.ContainsKey(type) || m_PrefabBindings.ContainsKey(type);
+            bool behind = IsBoundInFallbacks(m_Fallback, type);
 
             switch (bindPolicy)
             {
                 case BindPolicy.ErrorIfExists:
-                    throw new ArgumentException($"{nameof(DIContainer)}::{context} [{type}] has already been bound");
+                    if (here)
+                    {
+                        throw new ArgumentException($"{nameof(DIContainer)}::{context} [{type}] has already been bound");
+                    }
+
+                    if (behind)
+                    {
+                        throw new ArgumentException($"{nameof(DIContainer)}::{context} [{type}] is bound in a container this falls back to. Bind it locally to override it here");
+                    }
+
+                    return true;
                 case BindPolicy.SkipIfExists:
-                    return false;
+                    return !here && !behind;
                 case BindPolicy.Overwrite:
-                    m_Bindings.Remove(type);
-                    m_PrefabBindings.Remove(type);
+                    if (behind)
+                    {
+                        throw new ArgumentException($"{nameof(DIContainer)}::{context} [{type}] is bound in a container this falls back to, which a forced bind does not replace. Bind it locally to override it here");
+                    }
+
+                    return true;
+                case BindPolicy.Local:
+                    if (here)
+                    {
+                        throw new ArgumentException($"{nameof(DIContainer)}::{context} [{type}] has already been bound in this container");
+                    }
+
                     return true;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        private static bool IsBoundInFallbacks(IDIContainer fallback, Type type)
+        {
+            // Every container binds itself as its resolver, which no fallback's stands behind.
+            if (type == typeof(IDIResolver))
+            {
+                return false;
+            }
+
+            for (IDIContainer current = fallback; current != null; current = current.Fallback)
+            {
+                if (current.Bindings.ContainsKey(type) || current.PrefabBindings.ContainsKey(type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -722,13 +872,12 @@ namespace RPGFramework.DI
                 throw new InvalidOperationException($"{nameof(DIContainer)}::{nameof(BindInterfacesToSelfSingletonInternal)} Type [{tConcrete}] implements no bindable interfaces, so this call would bind nothing. Use {nameof(IDIContainer.BindInterfacesAndConcreteToSelfSingleton)} to bind the concrete type itself");
             }
 
-            if (bindPolicy == BindPolicy.ErrorIfExists)
+            // Every contract checked before any is bound, so a refusal leaves none bound.
+            if (bindPolicy != BindPolicy.SkipIfExists)
             {
                 for (int i = 0; i < typesToBind.Length; i++)
                 {
-                    Type typeToBind = typesToBind[i];
-
-                    HandleExistingBinding(typeToBind, bindPolicy, nameof(BindInterfacesToSelfSingletonInternal));
+                    CanBind(typesToBind[i], bindPolicy, nameof(BindInterfacesToSelfSingletonInternal));
                 }
             }
 
@@ -924,6 +1073,19 @@ namespace RPGFramework.DI
             }
 
             return args;
+        }
+
+        private bool IsBoundOnChain(Type type)
+        {
+            for (IDIContainer current = this; current != null; current = current.Fallback)
+            {
+                if (current.Bindings.ContainsKey(type) || current.PrefabBindings.ContainsKey(type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsBound(Type type, IDIContainer context)
