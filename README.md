@@ -82,7 +82,7 @@ its own, the global container keeps its binding, and unbinding the scene's bring
 
 The forced form suits platform overrides: bind a default, then force the platform's own over it in the same container.
 
-`Unbind<T>()` removes a binding. `Unbind<T>(instance)` removes it and hands the instance back, so the container will no
+`Unbind<T>()` removes this container's binding, never a fallback's. `Unbind<T>(instance)` removes it and hands the instance back, so the container will no
 longer dispose it. `UnbindInterfacesToSelf<T>()` undoes either interfaces-to-self binding.
 
 ### Resolving
@@ -147,7 +147,8 @@ sceneContainer.SetFallback(globalContainer);
 ```
 
 A container that cannot resolve a type asks its fallback, and so on along the chain, so a scene's container sees its own
-bindings first and the global ones behind them. A fallback that leads back to the container throws.
+bindings first and the global ones behind them. A fallback that leads back to the container throws, and so does one
+binding a contract the container binds already: set the fallback first, so every bind sees what it holds.
 
 A singleton is built from the container it is bound in, and that container's fallbacks, whichever container it was
 resolved through. A global singleton therefore never sees a scene's bindings: it cannot hold on to objects that go when
@@ -235,15 +236,15 @@ public sealed class Boot : MonoBehaviour
 }
 ```
 
-**Give each scene a container of its own** once it has loaded, from the installer its `SceneInstallerMonoBehaviour`
-holds, falling back to the global one:
+**Give each scene a container of its own** once it has loaded, falling back to the global one, from the installer its
+`SceneInstallerMonoBehaviour` holds:
 
 ```csharp
 DIContainer  container = new DIContainer();
 IDIContainer scene     = container;
 
-Object.FindAnyObjectByType<SceneInstallerMonoBehaviour>().SceneInstaller.InstallBindings(scene);
 scene.SetFallback(Boot.Global);
+Object.FindAnyObjectByType<SceneInstallerMonoBehaviour>().SceneInstaller.InstallBindings(scene);
 scene.BuildNonLazy();
 ```
 
